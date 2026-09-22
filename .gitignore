@@ -1,0 +1,29 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# ML outputs and local data
+ml/data/processed/*
+ml/models/*
+!ml/data/processed/.gitkeep
+!ml/models/.gitkeep
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# PlatformIO
+firmware/esp32/.pio/

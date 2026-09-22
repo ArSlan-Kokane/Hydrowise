@@ -1,0 +1,12 @@
+{
+  "name": "hydrowise",
+  "private": true,
+  "version": "0.1.0",
+  "description": "IoT-ready irrigation decision-support system scaffold",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "web:dev": "pnpm --dir apps/web dev",
+    "api:dev": "uvicorn services.api.app.main:app --reload",
+    "check": "pnpm --dir apps/web check"
+  }
+}

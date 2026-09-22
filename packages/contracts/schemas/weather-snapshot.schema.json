@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hydrowise.local/contracts/weather-snapshot.schema.json",
+  "title": "WeatherSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["observed_at", "forecast_horizon_hours", "rain_probability_%"],
+  "properties": {
+    "observed_at": { "type": "string", "format": "date-time" },
+    "forecast_horizon_hours": { "const": 6 },
+    "rain_probability_%": { "type": "number", "minimum": 0, "maximum": 100 },
+    "provider": { "type": "string", "minLength": 1 }
+  }
+}

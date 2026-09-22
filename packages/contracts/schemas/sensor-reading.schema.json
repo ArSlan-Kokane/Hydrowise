@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hydrowise.local/contracts/sensor-reading.schema.json",
+  "title": "SensorReading",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["device_id", "captured_at", "temperature_C", "humidity_%", "soil_moisture_%"],
+  "properties": {
+    "device_id": { "type": "string", "minLength": 1 },
+    "captured_at": { "type": "string", "format": "date-time" },
+    "temperature_C": { "type": "number" },
+    "humidity_%": { "type": "number", "minimum": 0, "maximum": 100 },
+    "soil_moisture_%": { "type": "number", "minimum": 0, "maximum": 100 }
+  }
+}

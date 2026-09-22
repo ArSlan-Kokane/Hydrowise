@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hydrowise.local/contracts/irrigation-decision.schema.json",
+  "title": "IrrigationDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decided_at", "recommendation", "weather_gate", "safety_status"],
+  "properties": {
+    "decided_at": { "type": "string", "format": "date-time" },
+    "recommendation": { "enum": ["IRRIGATE", "DO_NOT_IRRIGATE"] },
+    "weather_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rain_probability_%", "threshold_%", "passed"],
+      "properties": {
+        "rain_probability_%": { "type": "number", "minimum": 0, "maximum": 100 },
+        "threshold_%": { "const": 30 },
+        "passed": { "type": "boolean" }
+      }
+    },
+    "ml_result": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "recommendation": { "enum": ["IRRIGATE", "DO_NOT_IRRIGATE"] },
+        "model_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "safety_status": { "enum": ["RECOMMENDATION_ONLY", "ACTUATION_BLOCKED", "ACTUATION_ALLOWED"] }
+  }
+}
