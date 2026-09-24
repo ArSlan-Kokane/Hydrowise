@@ -1,13 +1,13 @@
-# For test use
+### For test use
 install unicorn
 install ppm
 install requirements.txt
 Get into Hydrowise Direectory
-## Paste For Backend
-uvicorn services.api.app.main:app --host 0.0.0.0 --port 8000
+### Paste For Backend
+```code uvicorn services.api.app.main:app --host 0.0.0.0 --port 8000 ```
 
-## Paste For Frontend
-pnpm --dir apps/web dev --host 0.0.0.0 --port 5173
+### Paste For Frontend
+```code pnpm --dir apps/web dev --host 0.0.0.0 --port 5173 ```
 
 # 🌱 Hydro-Wise
 
