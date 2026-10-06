@@ -68,12 +68,15 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Sensor / device ingestion                                            #
     # ------------------------------------------------------------------ #
+    device_api_key: str = Field(
+        default="",
+        alias="DEVICE_API_KEY",
+        description="API key required for device telemetry posts via X-API-Key header.",
+    )
     device_ingestion_secret: str = Field(
         default="",
-        description=(
-            "Shared secret used to authenticate ESP32 telemetry posts.  "
-            "Empty → authentication is skipped (development only)."
-        ),
+        alias="DEVICE_INGESTION_SECRET",
+        description="Shared secret used to authenticate ESP32 telemetry posts (legacy).",
     )
     sensor_freshness_seconds: int = Field(
         default=300,
@@ -82,6 +85,11 @@ class Settings(BaseSettings):
             "Readings older than this fail the freshness check."
         ),
     )
+
+    @property
+    def effective_device_api_key(self) -> str:
+        """Return the configured device API key or fallback to legacy secret."""
+        return self.device_api_key or self.device_ingestion_secret
 
     # ------------------------------------------------------------------ #
     # ML model artifact                                                    #
@@ -99,18 +107,30 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
-    # Persistence (deferred)                                               #
+    # Persistence                                                          #
     # ------------------------------------------------------------------ #
     database_url: str = Field(
-        default="",
-        description="Connection URL for the future persistence layer.",
+        default="sqlite:///hydrowise.db",
+        alias="DATABASE_URL",
+        description="Connection URL or file path for SQLite database.",
     )
+
+    @property
+    def sqlite_db_path(self) -> str:
+        """Resolve the SQLite filesystem path from database_url."""
+        url = self.database_url or "sqlite:///hydrowise.db"
+        if url.startswith("sqlite:///"):
+            return url[len("sqlite:///") :]
+        if url.startswith("sqlite://"):
+            return url[len("sqlite://") :]
+        return url
 
     # ------------------------------------------------------------------ #
     # API service                                                          #
     # ------------------------------------------------------------------ #
     api_cors_origins: list[str] = Field(
-        default=["http://localhost:5173", "http://127.0.0.1:5173"],
+        default=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
+        alias="CORS_ORIGINS",
         description="Allowed CORS origins for the web dashboard.",
     )
 

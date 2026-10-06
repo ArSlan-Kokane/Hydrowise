@@ -20,7 +20,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from .decision.engine import DecisionEngine
 from .dependencies import device_secret_dep, engine_dep, ingestion_dep, settings_dep
-from .ingestion.telemetry import IngestionService, IngestionStatus
+from .ingestion.telemetry import (
+    IngestionService,
+    IngestionStatus,
+    TelemetryStore,
+    get_telemetry_store,
+)
 from .mock.data_generator import (
     evaluate as mock_evaluate,
     history,
@@ -30,7 +35,7 @@ from .mock.data_generator import (
 from .models.schemas import DecisionEvaluationRequest, SensorReading
 from .config import Settings
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter()
 
 
 # --------------------------------------------------------------------------- #
@@ -64,6 +69,7 @@ def system_status(settings: Settings = Depends(settings_dep)) -> dict:
 # Weather                                                                      #
 # --------------------------------------------------------------------------- #
 
+@router.get("/weather/current")
 @router.get("/weather/snapshot")
 async def get_weather(engine: DecisionEngine = Depends(engine_dep)):
     """Return the current weather snapshot from the configured provider."""
@@ -76,16 +82,17 @@ async def get_weather(engine: DecisionEngine = Depends(engine_dep)):
 # --------------------------------------------------------------------------- #
 
 @router.get("/sensors/latest")
-def get_latest_sensors():
+async def get_latest_sensors(store: TelemetryStore = Depends(get_telemetry_store)):
     """
-    Return the most recent sensor reading.
-
-    # TODO (Phase 4): replace mock with TelemetryStore.latest() once live
-    # ESP32 ingestion is wired.
+    Return the most recent sensor reading from store, or fallback to mock.
     """
+    latest = await store.latest()
+    if latest is not None:
+        return latest
     return sensor_reading()
 
 
+@router.post("/sensors/reading", status_code=status.HTTP_201_CREATED)
 @router.post("/sensors/telemetry", status_code=status.HTTP_201_CREATED)
 async def post_telemetry(
     reading: SensorReading,
@@ -93,9 +100,9 @@ async def post_telemetry(
     device_secret: str | None = Depends(device_secret_dep),
 ):
     """
-    Accept a sensor reading from an ESP32 device.
+    Accept a sensor reading from an ESP32 device or simulator.
 
-    The IngestionService validates device authentication (via the optional
+    The IngestionService validates device authentication (via X-API-Key or
     X-Device-Secret header) and checks that the reading is fresh before
     persisting it.
     """
@@ -117,13 +124,13 @@ async def post_telemetry(
 
 
 @router.get("/sensors/history")
-def get_sensor_history():
+async def get_sensor_history(store: TelemetryStore = Depends(get_telemetry_store)):
     """
-    Return 24 hours of sensor history.
-
-    # TODO (Phase 4): replace mock with TelemetryStore.history() once
-    # persistence is available.
+    Return 24 hours of sensor history from store, or fallback to mock.
     """
+    stored = await store.history(limit=24)
+    if stored:
+        return {"items": stored}
     return {"items": history()}
 
 
@@ -148,6 +155,7 @@ async def evaluate_decision(
     )
 
 
+@router.get("/decision/current")
 @router.get("/decisions/evaluate")
 async def get_current_decision(engine: DecisionEngine = Depends(engine_dep)):
     """
@@ -159,12 +167,12 @@ async def get_current_decision(engine: DecisionEngine = Depends(engine_dep)):
     return await engine.evaluate()
 
 
+@router.get("/decision/history")
 @router.get("/decisions/history")
 async def get_decision_history(engine: DecisionEngine = Depends(engine_dep)):
     """
     Return a short history of irrigation decisions.
-
-    # TODO (Phase 6): replace with real decision history from persistence.
     """
     decisions = [await engine.evaluate() for _ in range(8)]
     return {"items": decisions}
+
