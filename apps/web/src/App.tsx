@@ -1,15 +1,27 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
+import { Sidebar } from "./components/Sidebar";
+import { Header } from "./components/Header";
+import { HeroSection } from "./components/HeroSection";
+import { KpiRow } from "./components/KpiRow";
+import { GroundwaterMap, WellData } from "./components/GroundwaterMap";
+import { RiskPicture } from "./components/RiskPicture";
+import { AquiferMovement } from "./components/AquiferMovement";
+import { CommunitySignals, CommunitySignal } from "./components/CommunitySignals";
+import { ScenarioBar, ScenarioKey } from "./components/ScenarioBar";
+import { SearchModal } from "./components/SearchModal";
+import { NotificationsModal } from "./components/NotificationsModal";
+import { ReportObservationModal } from "./components/ReportObservationModal";
+import { AdminDrawer } from "./components/AdminDrawer";
+import { Icon } from "./components/Icons";
 
-type ScenarioKey = "normal" | "heat" | "rain" | "stress";
-
-const scenarios = {
+const initialScenarios = {
   normal: { label: "Current conditions", rain: 18, level: 61, risk: "Watch", note: "Water demand is rising in the western fields." },
   heat: { label: "Heatwave week", rain: 4, level: 43, risk: "High", note: "Evaporation pressure is spreading across the block." },
   rain: { label: "Monsoon arrival", rain: 72, level: 68, risk: "Moderate", note: "Recharge potential is improving, but runoff is uneven." },
   stress: { label: "Extraction stress", rain: 9, level: 27, risk: "Critical", note: "Well drawdown and crop demand are converging." },
 } as const;
 
-const wells = [
+const initialWells: WellData[] = [
   { id: "W-014", x: 27, y: 34, level: "Good", value: "8.4 m", color: "good", village: "Bhairavpur", population: "2,400", usage: "Drinking + Irrigation" },
   { id: "W-022", x: 46, y: 27, level: "Watch", value: "11.8 m", color: "watch", village: "Khera", population: "1,800", usage: "Irrigation" },
   { id: "W-031", x: 61, y: 51, level: "Stressed", value: "16.2 m", color: "risk", village: "South Ward", population: "3,200", usage: "Drinking + Industry" },
@@ -18,68 +30,54 @@ const wells = [
   { id: "W-068", x: 34, y: 72, level: "Good", value: "7.9 m", color: "good", village: "Sultanpur", population: "1,900", usage: "Drinking + Irrigation" },
 ];
 
-// Skip link component for keyboard navigation
+const initialSignals: CommunitySignal[] = [
+  {
+    id: "sig-1",
+    initials: "AM",
+    type: "farmer",
+    sourceName: "Anita Meena",
+    village: "Bhairavpur",
+    observation: "Handpump yield has reduced since Monday",
+    time: "18 min",
+  },
+  {
+    id: "sig-2",
+    initials: "MC",
+    type: "council",
+    sourceName: "Monitoring cell",
+    village: "South ward",
+    observation: "Well W-031 crossed the watch threshold",
+    time: "2 hr",
+  },
+  {
+    id: "sig-3",
+    initials: "RS",
+    type: "farmer",
+    sourceName: "Ramesh Singh",
+    village: "Khera",
+    observation: "Canal flow is normal after maintenance",
+    time: "Yesterday",
+  },
+];
+
+// Skip link component for keyboard accessibility
 function SkipLink() {
   return (
-    <a 
-      href="#main-content" 
-      className="skip-link"
-      style={{
-        position: 'absolute',
-        top: '-40px',
-        left: '0',
-        background: 'var(--navy)',
-        color: '#fff',
-        padding: '8px 16px',
-        zIndex: '100',
-        transition: 'top 0.3s',
-        textDecoration: 'none',
-        fontSize: '14px'
-      }}
-      onFocus={(e) => e.currentTarget.style.top = '0'}
-      onBlur={(e) => e.currentTarget.style.top = '-40px'}
-    >
+    <a href="#main-content" className="skip-link">
       Skip to main content
     </a>
   );
 }
 
-function Icon({ name }: { name: string }) {
-  const paths: Record<string, string> = {
-    overview: "M3 12 12 4l9 8M5 10v10h14V10M9 20v-6h6v6",
-    map: "M4 5.5 9 3l6 2.5L20 3v15.5l-5 2.5-6-2.5-5 2.5V5.5ZM9 3v15.5M15 5.5V21",
-    field: "M4 19c3-4 5-8 8-14 2 5 4 9 8 14M6 18h12M9 13h6",
-    alerts: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
-    council: "M4 20h16M6 20V9h12v11M4 9h16l-8-5-8 5M9 13v4M12 13v4M15 13v4",
-    search: "m20 20-4.5-4.5M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z",
-    bell: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
-    layers: "m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5",
-    chevron: "m9 18 6-6-6-6",
-    menu: "M3 12h18M3 6h18M3 18h18",
-    close: "M18 6L6 18M6 6l12 12",
-  };
-  return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name] ?? paths.overview} /></svg>;
-}
-
-function MiniChart({ scenario }: { scenario: ScenarioKey }) {
-  const stressed = scenario === "stress" || scenario === "heat";
-  return <svg className="mini-chart" viewBox="0 0 420 120" preserveAspectRatio="none" aria-label="Groundwater level trend"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#5eab78" stopOpacity=".28" /><stop offset="1" stopColor="#5eab78" stopOpacity="0" /></linearGradient></defs><path d="M0 30 C40 39 58 28 88 45 S142 37 174 55 S223 48 254 61 S302 54 335 70 S380 62 420 78 V120 H0Z" fill="url(#area)" /><path d={stressed ? "M0 29 C40 41 58 34 88 50 S142 48 174 69 S223 64 254 78 S302 71 335 91 S380 83 420 103" : "M0 30 C40 39 58 28 88 45 S142 37 174 55 S223 48 254 61 S302 54 335 70 S380 62 420 78"} fill="none" stroke={stressed ? "#d59a48" : "#79be83"} strokeWidth="2.5" /><line x1="0" y1="92" x2="420" y2="92" stroke="#9aab99" strokeDasharray="4 6" opacity=".35" /></svg>;
-}
-
-function MapSurface({ scenario, zoom, satellite, layers, onZoom, onLayers }: { scenario: ScenarioKey; zoom: number; satellite: boolean; layers: boolean; onZoom: (delta: number) => void; onLayers: () => void }) {
-  const stressed = scenario === "stress" || scenario === "heat";
-  return <div className={`map-surface ${satellite ? "satellite" : ""} ${layers ? "layers-on" : ""}`} style={{ "--map-zoom": zoom } as React.CSSProperties}><div className="map-label map-north">N</div><div className="map-label river-label">KALU RIVER</div><svg className="map-art" viewBox="0 0 760 410" preserveAspectRatio="none" aria-label="Groundwater monitoring map"><defs><linearGradient id="terrain" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#dfe6cf" /><stop offset="1" stopColor="#bbcba9" /></linearGradient><pattern id="roads" width="46" height="46" patternUnits="userSpaceOnUse" patternTransform="rotate(22)"><path d="M0 12h46M0 35h46" stroke="#a0b398" strokeWidth="1" opacity=".38" /></pattern></defs><rect width="760" height="410" fill="url(#terrain)" /><rect width="760" height="410" fill="url(#roads)" /><path d="M-20 92 C110 150 143 69 245 126 S395 220 494 137 S641 90 790 152" fill="none" stroke="#79aeb0" strokeWidth="15" opacity=".7" /><path d="M-20 92 C110 150 143 69 245 126 S395 220 494 137 S641 90 790 152" fill="none" stroke="#c6e1d3" strokeWidth="7" /><path className="water-flow" d="M-20 92 C110 150 143 69 245 126 S395 220 494 137 S641 90 790 152" fill="none" stroke="#f2fbdf" strokeWidth="2.5" strokeDasharray="2 18" strokeLinecap="round" /><path d="M76 316 C176 258 228 320 302 280 S456 255 532 310 S675 274 780 323 L780 410H76Z" fill="#789e72" opacity=".22" /><path d="M92 0 L270 0 205 410 0 410 0 220Z" fill="#9caf86" opacity=".2" /><path d="M620 0 L760 0 760 410 537 410 588 192Z" fill="#91a77d" opacity=".16" /><g fill="none" stroke="#829d7d" strokeWidth="1" opacity=".55"><path d="M60 40 185 160 130 296" /><path d="M325 12 388 118 360 258 432 399" /><path d="M574 22 522 159 611 250 580 398" /></g><path d="M0 260 C120 214 201 251 308 229 S517 218 760 241" fill="none" stroke="#597d68" strokeWidth="2" strokeDasharray="8 7" opacity=".55" /></svg>{wells.map((well) => <div className={`well-marker ${well.color}`} key={well.id} style={{ left: `${well.x}%`, top: `${well.y}%` }}><span className="well-pulse" /><span className="well-core" /><div className="well-tooltip"><b>{well.id}</b><span>{well.value} below ground</span><em>{well.level}</em><div className="well-demographics"><small>📍 {well.village}</small><small>👥 {well.population} people</small><small>💧 {well.usage}</small></div></div></div>)}<div className="map-controls"><button aria-label="Zoom in" onClick={() => onZoom(.12)}>+</button><button aria-label="Zoom out" onClick={() => onZoom(-.12)}>−</button><button className={layers ? "pressed" : ""} aria-label="Map layers" onClick={onLayers}><Icon name="layers" /></button></div><div className="map-legend"><span><i className="legend-dot good" />Healthy</span><span><i className="legend-dot watch" />Watch</span><span><i className="legend-dot risk" />Stressed</span></div><div className="map-scale">0&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp; 2 km</div>{stressed && <div className="map-notice"><span className="notice-bar" />Drawdown pressure detected in south-east aquifer</div>}</div>;
-}
-
-function Sidebar({ active, setActive, isOpen, onClose }: { active: string; setActive: (value: string) => void; isOpen: boolean; onClose: () => void }) {
-  const nav = [["overview", "Overview"], ["map", "Groundwater map"], ["field", "Field conditions"], ["alerts", "Community alerts"]];
-  return <aside className={`sidebar ${isOpen ? "open" : ""}`} aria-label="Main navigation"><div className="side-brand"><img className="brand-logo" src="/brand/hydrowise-logo.jpg" alt="HydroWise — Intelligent Water System" /></div><button className="sidebar-close" onClick={onClose} aria-label="Close navigation"><Icon name="close" /></button><div className="workspace-label" role="heading" aria-level={2}>WORKSPACE</div><nav aria-label="Primary navigation">{nav.map(([icon, label]) => <button className={active === label ? "active" : ""} onClick={() => { setActive(label); onClose(); }} key={label} aria-current={active === label ? "page" : undefined}><Icon name={icon} /><span>{label}</span>{label === "Community alerts" && <i className="nav-count" aria-label="3 unread alerts">3</i>}</button>)}</nav><div className="workspace-label admin-label" role="heading" aria-level={2}>PUBLIC SYSTEMS</div><nav aria-label="Public systems navigation"><button className={active === "Local administration" ? "active" : ""} onClick={() => { setActive("Local administration"); onClose(); }} aria-current={active === "Local administration" ? "page" : undefined}><Icon name="council" /><span>Local administration</span></button></nav><div className="side-foot"><div className="season-card" role="status" aria-live="polite"><span className="season-icon" aria-hidden="true">☼</span><div><b>Pre-monsoon window</b><small>18 days to expected rains</small></div></div><div className="side-user"><span className="avatar" aria-hidden="true">RK</span><div><b>Ravi Kumar</b><small>Field coordinator</small></div><Icon name="chevron" /></div></div></aside>;
-}
-
-function App() {
+export function App() {
   const [active, setActive] = useState("Overview");
   const [scenario, setScenario] = useState<ScenarioKey>("normal");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [selectedWellId, setSelectedWellId] = useState<string | null>(null);
+
   const [mapZoom, setMapZoom] = useState(1);
   const [layers, setLayers] = useState(true);
   const [satellite, setSatellite] = useState(false);
@@ -87,12 +85,249 @@ function App() {
   const [notice, setNotice] = useState("");
   const [region, setRegion] = useState("KALYANPUR BLOCK");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const current = scenarios[scenario];
-  const riskText = useMemo(() => current.risk === "Critical" ? "Multiple pressure signals need attention" : current.risk === "High" ? "Demand is outpacing natural recharge" : "Conditions are stable, with local variation", [current.risk]);
-  const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(""), 2600); };
-  const exportBrief = () => { const body = `HydroWise situation brief\nRegion: ${region}\nScenario: ${current.label}\nGroundwater reserve: ${current.level}/100\nRisk: ${current.risk}\nRain outlook: ${current.rain}%`; const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([body], { type: "text/plain" })); link.download = "hydrowise-situation-brief.txt"; link.click(); URL.revokeObjectURL(link.href); notify("Situation brief downloaded"); };
-  const shareView = async () => { try { await navigator.clipboard?.writeText(window.location.href); notify("Public view link copied"); } catch { notify("Public view is ready to share"); } };
-  return <div className="app"><SkipLink /><Sidebar active={active} setActive={setActive} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />{sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}<div className="content"><header className="header" role="banner"><div className="header-left"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu"><Icon name="menu" /></button><div className="crumb"><span>District water office</span><Icon name="chevron" /><b>{active}</b></div></div><div className="header-actions"><button className="region-button" onClick={() => { const next = region === "KALYANPUR BLOCK" ? "SOUTH WARD" : region === "SOUTH WARD" ? "BHAVANIPUR BLOCK" : "KALYANPUR BLOCK"; setRegion(next); notify(`Region changed to ${next}`); }} aria-label={`Change region. Currently ${region}`}><span className="region-dot" aria-hidden="true" /> {region} <Icon name="chevron" /></button><button className="icon-button" onClick={() => setSearchOpen(!searchOpen)} aria-label="Search" aria-expanded={searchOpen}><Icon name="search" /></button><button className="icon-button notification" aria-label="Notifications - 3 unread"><Icon name="bell" /><i aria-hidden="true" /></button><div className="header-date" aria-label="Current date and time">MON, 24 SEP 2026<br /><span>10:42 AM IST</span></div></div></header>{searchOpen && <div className="search-panel" role="search" aria-label="Search interface"><Icon name="search" aria-hidden="true" /><input autoFocus placeholder="Search wells, villages, alerts..." aria-label="Search wells, villages, and alerts" /><kbd>ESC</kbd></div>}<main className="page" id="main-content" role="main" tabIndex={-1}><section className="intro" aria-labelledby="intro-heading"><div><span className="section-kicker">LIVING WATER SYSTEM / KALYANPUR BLOCK</span><h1 id="intro-heading">Read the landscape.<br /><em>Act before scarcity.</em></h1><p>One shared picture of groundwater, field conditions and community risk — for the people who depend on every drop.</p></div><div className="intro-actions"><button className="outline-button" onClick={exportBrief} aria-label="Export situation brief as text file"><span className="download-symbol" aria-hidden="true">↓</span> Export situation brief</button><button className="primary-button" onClick={shareView}>Share public view <Icon name="chevron" /></button></div></section><section className="insight-row" aria-label="Key metrics dashboard"><article className="insight-card reserve" aria-labelledby="reserve-label"><div className="insight-top"><span className="insight-label" id="reserve-label">GROUNDWATER RESERVE</span><span className="trend up" aria-label="Up 4.2 percent">↑ 4.2%</span></div><strong>{current.level}<small>/ 100</small></strong><div className="progress" role="progressbar" aria-valuenow={current.level} aria-valuemin={0} aria-valuemax={100} aria-label={`Groundwater reserve at ${current.level} percent`}><i style={{ width: `${current.level}%` }} /></div><p>Compared with the same period last year</p><div className="card-context"><small>📍 Kalyanpur Block Region</small><small>👥 Affects 12,400 people</small><small>🌾 68 monitored wells</small></div></article><article className="insight-card" aria-labelledby="recharge-label"><div className="insight-top"><span className="insight-label" id="recharge-label">RECHARGE OUTLOOK</span><span className="status-chip">{current.risk === "Critical" ? "Below normal" : "Moderate"}</span></div><strong className="word-value">{current.risk === "High" || current.risk === "Critical" ? "At risk" : "Balanced"}</strong><p>Rainfall <b>{current.rain}%</b> likely in next 6 hours</p><div className="tiny-bars" aria-hidden="true"><i /><i /><i /><i className="dim" /><i className="dim" /></div><div className="card-context"><small>🌧️ Monsoon Season: Pre-monsoon</small><small>📅 18 days to expected rains</small><small>🌡️ Current temp: 38°C</small></div></article><article className="insight-card" aria-labelledby="signals-label"><div className="insight-top"><span className="insight-label" id="signals-label">ACTIVE SIGNALS</span><span className="signal-dot" aria-hidden="true" /></div><strong className="word-value">03 <small>needs review</small></strong><p>2 field reports · 1 aquifer watch</p><a href="#signals">View all signals <Icon name="chevron" /></a><div className="card-context"><small>🚨 Priority: Medium</small><small>⏰ Last updated: 2 hours ago</small><small>📍 South-east cluster affected</small></div></article><article className="insight-card" aria-labelledby="water-table-label"><div className="insight-top"><span className="insight-label" id="water-table-label">WATER TABLE</span><span className="trend down" aria-label="Down 0.42 meters">↓ 0.42 m</span></div><strong className="word-value">11.6 <small>m avg depth</small></strong><p>Across 68 monitored wells</p><span className="mini-trend">Last 30 days <b aria-hidden="true">↘</b><span className="sr-only">Decreasing</span></span><div className="card-context"><small>📊 Trend: Declining slowly</small><small>🏠 85% wells stable</small><small>⚠️ 3 wells need attention</small></div></article></section><section className="map-section" aria-labelledby="map-heading"><div className="map-heading"><div><span className="section-kicker">01 / GROUNDWATER MAP</span><h2 id="map-heading">What is happening beneath us?</h2><p>Live interpretation of monitored wells, aquifer pressure and field reports.</p></div><div className="map-actions"><button className={`small-button ${layers ? "selected" : ""}`} onClick={() => { setLayers(!layers); notify(layers ? "Field and well layers hidden" : "Field and well layers shown"); }} aria-pressed={layers}>All layers <Icon name="chevron" /></button><button className={`small-button ${satellite ? "selected" : ""}`} onClick={() => { setSatellite(!satellite); notify(satellite ? "Terrain view restored" : "Satellite view enabled"); }} aria-pressed={satellite}>Satellite view</button></div></div><div className="map-layout"><MapSurface scenario={scenario} zoom={mapZoom} satellite={satellite} layers={layers} onZoom={(delta) => setMapZoom((value) => Math.min(1.55, Math.max(.82, value + delta)))} onLayers={() => { setLayers(!layers); notify(layers ? "Field and well layers hidden" : "Field and well layers shown"); }} /><aside className="risk-panel" aria-labelledby="risk-heading"><div className="risk-heading"><span className="section-kicker">RISK PICTURE</span><span className={`risk-level ${current.risk.toLowerCase()}`}>{current.risk}</span></div><h3 id="risk-heading">{riskText}</h3><p>South-east aquifer stress is the most important change since last week.</p><div className="risk-meter" role="progressbar" aria-valuenow={current.level} aria-valuemin={0} aria-valuemax={100} aria-label={`Water security at ${current.level} percent`}><div><span>WATER SECURITY</span><b>{current.level}%</b></div><div className="meter-line"><i style={{ width: `${current.level}%` }} /></div><small>Resilience index</small></div><div className="risk-divider" role="separator" aria-orientation="horizontal" /><div className="risk-item"><span className="risk-icon leaf" aria-hidden="true">↘</span><div><b>Crop demand</b><small>High in 3 village clusters</small></div><em>Rising</em></div><div className="risk-item"><span className="risk-icon rain" aria-hidden="true">∿</span><div><b>Rain outlook</b><small>{current.rain}% probability · 6 hours</small></div><em className="good-text">Useful</em></div><div className="risk-item"><span className="risk-icon people" aria-hidden="true">○</span><div><b>Community reports</b><small>2 new observations today</small></div><em>Review</em></div><button className="panel-link" onClick={() => notify("Aquifer detail view is next in the monitoring workspace")}>Open aquifer detail <Icon name="chevron" /></button></aside></div></section><section className="lower-grid" aria-label="Detailed analysis"><article className="white-card trend-card" aria-labelledby="trend-heading"><div className="white-card-head"><div><span className="section-kicker">02 / AQUIFER MOVEMENT</span><h2 id="trend-heading">The water table is a story, not a number.</h2></div><button className="period-button" onClick={() => { const next = period === 7 ? 30 : period === 30 ? 90 : 7; setPeriod(next); notify(`Showing ${next}-day movement`); }} aria-label={`Change time period to ${period === 7 ? 30 : period === 30 ? 90 : 7} days`}>{period} days <Icon name="chevron" /></button></div><div className="chart-meta"><strong>{current.risk === "Critical" ? "−1.8 m" : "−0.42 m"}</strong><span>average movement</span><b>◉ live reading</b></div><MiniChart scenario={scenario} /><div className="chart-axis" role="list" aria-label="Chart time axis"><span role="listitem">{period === 7 ? "Sep 18" : period === 30 ? "Aug 26" : "Jun 26"}</span><span role="listitem">{period === 7 ? "Sep 20" : period === 30 ? "Sep 02" : "Jul 26"}</span><span role="listitem">{period === 7 ? "Sep 22" : period === 30 ? "Sep 09" : "Aug 26"}</span><span role="listitem">{period === 7 ? "Sep 23" : period === 30 ? "Sep 16" : "Sep 09"}</span><span role="listitem">Today</span></div></article><article className="white-card signals-card" id="signals" aria-labelledby="signals-heading"><div className="white-card-head"><div><span className="section-kicker">03 / COMMUNITY SIGNALS</span><h2 id="signals-heading">People on the ground</h2></div><button className="view-all" onClick={() => { document.getElementById("signals")?.scrollIntoView({ behavior: "smooth" }); notify("Showing all community signals"); }}>View all <Icon name="chevron" /></button></div><div className="signal-list" role="list" aria-label="Community signals"><div className="signal-row" role="listitem"><span className="signal-avatar farmer" aria-hidden="true">AM</span><div><b>Anita Meena · Bhairavpur</b><small>Handpump yield has reduced since Monday</small></div><time>18 min</time></div><div className="signal-row" role="listitem"><span className="signal-avatar council" aria-hidden="true">MC</span><div><b>Monitoring cell · South ward</b><small>Well W-031 crossed the watch threshold</small></div><time>2 hr</time></div><div className="signal-row" role="listitem"><span className="signal-avatar farmer" aria-hidden="true">RS</span><div><b>Ramesh Singh · Khera</b><small>Canal flow is normal after maintenance</small></div><time>Yesterday</time></div></div><button className="report-button" onClick={() => notify("Observation form is ready for the community reporting phase")}>+ Report a local water observation</button></article></section><section className="scenario-bar" aria-labelledby="scenario-heading"><div><span className="section-kicker">EXPLORE THE SYSTEM</span><b id="scenario-heading">Change the conditions to see how risk moves across the map.</b></div><div className="scenario-tabs" role="tablist" aria-label="Weather scenarios">{(Object.keys(scenarios) as ScenarioKey[]).map((key) => <button className={scenario === key ? "selected" : ""} onClick={() => setScenario(key)} key={key} role="tab" aria-selected={scenario === key} aria-controls="main-content">{scenarios[key].label}</button>)}</div></section></main>{notice && <div className="toast" role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{notice}</div>}</div></div>;
+
+  const [signals, setSignals] = useState<CommunitySignal[]>(initialSignals);
+
+  const current = initialScenarios[scenario];
+
+  const riskText = useMemo(() => {
+    if (current.risk === "Critical") return "Multiple pressure signals need attention";
+    if (current.risk === "High") return "Demand is outpacing natural recharge";
+    return "Conditions are stable, with local variation";
+  }, [current.risk]);
+
+  const notify = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 3000);
+  };
+
+  const exportBrief = () => {
+    const body = `HydroWise situation brief\nRegion: ${region}\nScenario: ${current.label}\nGroundwater reserve: ${current.level}/100\nRisk: ${current.risk}\nRain outlook: ${current.rain}%\nGenerated: ${new Date().toISOString()}`;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
+    link.download = `hydrowise-situation-brief-${region.toLowerCase().replace(/\s+/g, "-")}.txt`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    notify("Situation brief downloaded");
+  };
+
+  const shareView = async () => {
+    try {
+      await navigator.clipboard?.writeText(window.location.href);
+      notify("Public view link copied to clipboard");
+    } catch {
+      notify("Public view is ready to share");
+    }
+  };
+
+  const handleRegionChange = () => {
+    const next =
+      region === "KALYANPUR BLOCK"
+        ? "SOUTH WARD"
+        : region === "SOUTH WARD"
+        ? "BHAVANIPUR BLOCK"
+        : "KALYANPUR BLOCK";
+    setRegion(next);
+    notify(`Region changed to ${next}`);
+  };
+
+  const handleZoom = (delta: number) => {
+    setMapZoom((val) => Math.min(1.55, Math.max(0.82, Number((val + delta).toFixed(2)))));
+  };
+
+  const handleLayersToggle = () => {
+    setLayers((prev) => {
+      notify(!prev ? "Field and well layers shown" : "Field and well layers hidden");
+      return !prev;
+    });
+  };
+
+  const handleSatelliteToggle = () => {
+    setSatellite((prev) => {
+      notify(!prev ? "Satellite multi-spectral view enabled" : "Tactical terrain view restored");
+      return !prev;
+    });
+  };
+
+  const handlePeriodChange = () => {
+    const next = period === 7 ? 30 : period === 30 ? 90 : 7;
+    setPeriod(next);
+    notify(`Showing ${next}-day aquifer movement`);
+  };
+
+  const handleNewReport = (newRep: { reporter: string; village: string; observation: string }) => {
+    const initials = newRep.reporter
+      .split(" ")
+      .map((p) => p[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "FO";
+
+    const added: CommunitySignal = {
+      id: `sig-${Date.now()}`,
+      initials,
+      type: "farmer",
+      sourceName: newRep.reporter,
+      village: newRep.village,
+      observation: newRep.observation,
+      time: "Just now",
+    };
+
+    setSignals([added, ...signals]);
+    notify(`Observation from ${newRep.village} ingested`);
+  };
+
+  const handleSelectWell = (wellId: string) => {
+    setSelectedWellId(wellId);
+    document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  return (
+    <div className="app">
+      <SkipLink />
+
+      {/* Main Sidebar */}
+      <Sidebar
+        active={active}
+        setActive={setActive}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onOpenAdmin={() => setAdminOpen(true)}
+      />
+
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <div className="content">
+        {/* Sticky Header */}
+        <Header
+          active={active}
+          region={region}
+          onRegionChange={handleRegionChange}
+          searchOpen={searchOpen}
+          onToggleSearch={() => {
+            setSearchOpen(!searchOpen);
+            setNotificationsOpen(false);
+          }}
+          notificationsOpen={notificationsOpen}
+          onToggleNotifications={() => {
+            setNotificationsOpen(!notificationsOpen);
+            setSearchOpen(false);
+          }}
+          onOpenSidebar={() => setSidebarOpen(true)}
+        />
+
+        {/* Search Modal */}
+        <SearchModal
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onSelectWell={handleSelectWell}
+          onNotify={notify}
+        />
+
+        {/* Notifications Modal */}
+        <NotificationsModal
+          isOpen={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          onNotify={notify}
+        />
+
+        {/* Report Observation Dialog */}
+        <ReportObservationModal
+          isOpen={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          onSubmit={handleNewReport}
+        />
+
+        {/* Local Administration Drawer */}
+        <AdminDrawer
+          isOpen={adminOpen}
+          onClose={() => setAdminOpen(false)}
+          onNotify={notify}
+          region={region}
+        />
+
+        {/* Main Content Page */}
+        <main className="page" id="main-content" role="main" tabIndex={-1}>
+          {/* Hero Section */}
+          <HeroSection
+            region={region}
+            onExportBrief={exportBrief}
+            onShareView={shareView}
+          />
+
+          {/* 4 Instrument KPI Cards */}
+          <KpiRow current={current} />
+
+          {/* Groundwater Map & Risk Picture Section */}
+          <section className="map-section" id="map-section" aria-label="Groundwater Map & Risk Analysis">
+            <div className="map-layout">
+              <GroundwaterMap
+                wells={initialWells}
+                scenario={scenario}
+                zoom={mapZoom}
+                satellite={satellite}
+                layers={layers}
+                onZoom={handleZoom}
+                onLayersToggle={handleLayersToggle}
+                onSatelliteToggle={handleSatelliteToggle}
+                selectedWellId={selectedWellId}
+                onSelectWell={setSelectedWellId}
+              />
+
+              <RiskPicture
+                current={current}
+                riskText={riskText}
+                onOpenDetail={() =>
+                  notify("Aquifer detail telemetry synchronized with district workspace")
+                }
+              />
+            </div>
+          </section>
+
+          {/* Bottom 3-Column Grid: Aquifer Movement, Community Signals, and Explore the System */}
+          <section className="bottom-three-grid" aria-label="Detailed environmental telemetry">
+            <AquiferMovement
+              period={period}
+              scenario={scenario}
+              onPeriodChange={handlePeriodChange}
+            />
+
+            <CommunitySignals
+              signals={signals}
+              onViewAll={() => {
+                document.getElementById("signals")?.scrollIntoView({ behavior: "smooth" });
+                notify("Viewing all 3 active community signal logs");
+              }}
+              onOpenReportModal={() => setReportModalOpen(true)}
+            />
+
+            <ScenarioBar
+              scenarios={initialScenarios}
+              currentScenario={scenario}
+              onSelectScenario={(newScen) => {
+                setScenario(newScen);
+                notify(`Switched to "${initialScenarios[newScen].label}" scenario`);
+              }}
+            />
+          </section>
+        </main>
+
+        {/* Global Floating Toast */}
+        {notice && (
+          <div className="toast" role="status" aria-live="polite" aria-atomic="true">
+            <span aria-hidden="true" />
+            {notice}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default App;

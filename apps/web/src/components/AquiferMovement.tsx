@@ -1,0 +1,126 @@
+import React from "react";
+import { Icon } from "./Icons";
+
+interface AquiferMovementProps {
+  period: number;
+  scenario: string;
+  onPeriodChange: () => void;
+}
+
+export function AquiferMovement({ period, scenario, onPeriodChange }: AquiferMovementProps) {
+  const stressed = scenario === "stress" || scenario === "heat";
+  const movementVal =
+    scenario === "stress"
+      ? "−1.80 m"
+      : scenario === "heat"
+      ? "−1.15 m"
+      : scenario === "rain"
+      ? "+0.65 m"
+      : "−0.42 m";
+
+  return (
+    <article className="bottom-card aquifer-card" aria-labelledby="trend-heading">
+      <div className="bottom-card-header">
+        <div className="card-title-group">
+          <svg
+            className="card-header-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#22A366"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          <span className="card-header-label">01 / AQUIFER MOVEMENT</span>
+        </div>
+        <button
+          className="period-dropdown-btn"
+          onClick={onPeriodChange}
+          aria-label={`Change time period to ${period === 7 ? 30 : period === 30 ? 90 : 7} days`}
+        >
+          <span>{period} days</span>
+          <Icon name="chevron" />
+        </button>
+      </div>
+
+      <h3 id="trend-heading" className="bottom-card-headline">
+        The water table is a story, not a number.
+      </h3>
+
+      <div className="aquifer-stat-row">
+        <div className="stat-left">
+          <b className="stat-big-val">{movementVal}</b>
+          <span className="stat-muted-label">average movement</span>
+        </div>
+        <div className="live-reading-indicator">
+          <span className="live-pulse-dot" />
+          <span>Live reading</span>
+        </div>
+      </div>
+
+      {/* Clean Light Green Chart */}
+      <div className="chart-canvas-wrap">
+        <svg
+          className="aquifer-svg-chart"
+          viewBox="0 0 420 110"
+          preserveAspectRatio="none"
+          aria-label="Aquifer water table trend line"
+        >
+          <defs>
+            <linearGradient id="aquifer-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#22A366" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#22A366" stopOpacity="0.01" />
+            </linearGradient>
+          </defs>
+
+          {/* Dotted horizontal grid lines */}
+          <line x1="0" y1="25" x2="420" y2="25" stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1="0" y1="55" x2="420" y2="55" stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1="0" y1="85" x2="420" y2="85" stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
+
+          {/* Area under curve */}
+          <path
+            d={
+              stressed
+                ? "M0 25 C60 40, 140 50, 220 70 S340 95, 420 102 V110 H0 Z"
+                : scenario === "rain"
+                ? "M0 65 C60 55, 140 45, 220 30 S340 18, 420 12 V110 H0 Z"
+                : "M0 45 C70 42, 140 55, 220 50 S340 70, 420 62 V110 H0 Z"
+            }
+            fill="url(#aquifer-fill)"
+          />
+
+          {/* Stroke Line */}
+          <path
+            d={
+              stressed
+                ? "M0 25 C60 40, 140 50, 220 70 S340 95, 420 102"
+                : scenario === "rain"
+                ? "M0 65 C60 55, 140 45, 220 30 S340 18, 420 12"
+                : "M0 45 C70 42, 140 55, 220 50 S340 70, 420 62"
+            }
+            fill="none"
+            stroke="#22A366"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+
+          {/* Live Node Beacon */}
+          <circle cx="418" cy={stressed ? 102 : scenario === "rain" ? 12 : 62} r="4" fill="#22A366" />
+          <circle cx="418" cy={stressed ? 102 : scenario === "rain" ? 12 : 62} r="8" fill="none" stroke="#22A366" opacity="0.3" />
+        </svg>
+
+        <div className="chart-date-axis">
+          <span>Aug 26</span>
+          <span>Sep 02</span>
+          <span>Sep 09</span>
+          <span>Sep 16</span>
+          <span className="today-label">Today</span>
+        </div>
+      </div>
+    </article>
+  );
+}
