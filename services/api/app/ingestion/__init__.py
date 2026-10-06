@@ -5,6 +5,7 @@ from .telemetry import (
     IngestionService,
     IngestionStatus,
     InMemoryTelemetryStore,
+    SqliteTelemetryStore,
     TelemetryStore,
     get_telemetry_store,
 )
@@ -14,6 +15,8 @@ __all__ = [
     "IngestionService",
     "IngestionStatus",
     "InMemoryTelemetryStore",
+    "SqliteTelemetryStore",
     "TelemetryStore",
     "get_telemetry_store",
 ]
+

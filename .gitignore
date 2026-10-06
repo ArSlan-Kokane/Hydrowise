@@ -27,3 +27,9 @@ ml/models/*
 
 # PlatformIO
 firmware/esp32/.pio/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
