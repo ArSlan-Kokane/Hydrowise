@@ -114,17 +114,20 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardVisible, setDashboardVisible] = useState(false);
   const dashboardHideTimerRef = useRef<number | null>(null);
+  const dashboardVisibleRef = useRef(false);
 
   const [signals, setSignals] = useState<CommunitySignal[]>(initialSignals);
 
   const current = initialScenarios[scenario];
 
   const revealDashboard = useCallback((duration = 2200) => {
+    dashboardVisibleRef.current = true;
     setDashboardVisible(true);
     if (dashboardHideTimerRef.current !== null) {
       window.clearTimeout(dashboardHideTimerRef.current);
     }
     dashboardHideTimerRef.current = window.setTimeout(() => {
+      dashboardVisibleRef.current = false;
       setDashboardVisible(false);
       dashboardHideTimerRef.current = null;
     }, duration);
@@ -133,7 +136,7 @@ export function App() {
   useEffect(() => {
     const handlePointerMove = (event: MouseEvent | PointerEvent) => {
       const isTouch = "pointerType" in event && event.pointerType === "touch";
-      if (!isTouch && event.clientX <= 36) {
+      if (!isTouch && event.clientX <= 36 && !dashboardVisibleRef.current) {
         revealDashboard();
       }
     };
