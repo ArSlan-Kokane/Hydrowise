@@ -24,6 +24,11 @@ interface GroundwaterMapProps {
   onSatelliteToggle: () => void;
   selectedWellId?: string | null;
   onSelectWell?: (wellId: string) => void;
+  weather?: {
+    rain: number;
+    provider: string;
+    gatePassed: boolean;
+  } | null;
 }
 
 export function GroundwaterMap({
@@ -37,6 +42,7 @@ export function GroundwaterMap({
   onSatelliteToggle,
   selectedWellId,
   onSelectWell,
+  weather,
 }: GroundwaterMapProps) {
   const [activeWell, setActiveWell] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -46,6 +52,7 @@ export function GroundwaterMap({
   const [showStressZone, setShowStressZone] = useState(true);
   const [showContours, setShowContours] = useState(true);
   const [showVillages, setShowVillages] = useState(true);
+  const [showRadar, setShowRadar] = useState(true);
 
   // Pan state for dragging the map
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -185,6 +192,14 @@ export function GroundwaterMap({
                     onChange={(e) => setShowVillages(e.target.checked)}
                   />
                   <span>Settlement Labels</span>
+                </label>
+                <label className="layer-checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={showRadar}
+                    onChange={(e) => setShowRadar(e.target.checked)}
+                  />
+                  <span>Weather Radar & Station</span>
                 </label>
               </div>
             )}
@@ -374,6 +389,31 @@ export function GroundwaterMap({
                 </text>
               </g>
             )}
+
+            {/* Weather Radar Coverage Area */}
+            {showRadar && weather && (
+              <g className="weather-radar-overlay" opacity={weather.rain > 30 ? "0.6" : "0.35"}>
+                <circle
+                  cx="370"
+                  cy="175"
+                  r={weather.rain > 30 ? "130" : "90"}
+                  fill={weather.rain > 30 ? "rgba(25, 118, 210, 0.12)" : "rgba(76, 175, 80, 0.08)"}
+                  stroke={weather.rain > 30 ? "#1976D2" : "#2E7D32"}
+                  strokeWidth="1.2"
+                  strokeDasharray="5 5"
+                />
+                <circle
+                  cx="370"
+                  cy="175"
+                  r="45"
+                  fill="none"
+                  stroke={weather.rain > 30 ? "#1976D2" : "#2E7D32"}
+                  strokeWidth="0.8"
+                  strokeDasharray="2 4"
+                  opacity="0.7"
+                />
+              </g>
+            )}
           </svg>
 
           {/* Settlement Village Labels on Map */}
@@ -433,6 +473,51 @@ export function GroundwaterMap({
               </div>
             );
           })}
+
+          {/* Weather Station & Doppler Radar Node */}
+          {showRadar && (
+            <div
+              className={`map-node weather-station ${activeWell === "weather-radar" ? "focused" : ""}`}
+              style={{ left: "48.5%", top: "42.5%" }}
+              onMouseEnter={() => setActiveWell("weather-radar")}
+              onMouseLeave={() => setActiveWell(null)}
+              onClick={() => setActiveWell("weather-radar")}
+              tabIndex={0}
+              role="button"
+              aria-label="Open-Meteo Weather Station"
+            >
+              <span className="node-glow-ring weather" />
+              <span className="node-center-dot weather">🌦️</span>
+
+              <div className="node-popover weather-popover">
+                <div className="popover-header">
+                  <b>Doppler Weather Station</b>
+                  <span className={`stat-pill ${weather?.gatePassed ? "weather-gate-passed" : "weather-gate-blocked"}`}>
+                    {weather ? `${weather.rain}% Rain` : "Live Feed"}
+                  </span>
+                </div>
+                <div className="popover-depth">
+                  {weather?.provider ?? "Open-Meteo Grid (18.52°N, 73.86°E)"}
+                </div>
+                <div className="popover-meta">
+                  <div>📍 Lat 18.52°N, Lon 73.86°E</div>
+                  <div>
+                    ⚡ Gate:{" "}
+                    <b>
+                      {weather
+                        ? weather.gatePassed
+                          ? "Passed (≤30%) → ML Active"
+                          : "Blocked (>30%) → Rain Expected"
+                        : "Checking..."}
+                    </b>
+                  </div>
+                  <div>
+                    🌧️ Forecast Horizon: <b>Next 6 Hours</b>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Top-Left: North Compass Rose with Reset Click */}

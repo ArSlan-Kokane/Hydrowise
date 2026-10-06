@@ -53,7 +53,8 @@ async def engine_dep(
     """
     weather = get_weather_provider(settings)
     ml = get_ml_adapter(settings)
-    return DecisionEngine(settings=settings, weather=weather, ml=ml)
+    store = get_telemetry_store(settings)
+    return DecisionEngine(settings=settings, weather=weather, ml=ml, store=store)
 
 
 # --------------------------------------------------------------------------- #

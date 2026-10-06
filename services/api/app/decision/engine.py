@@ -44,10 +44,12 @@ class DecisionEngine:
         settings: Settings,
         weather: WeatherProvider,
         ml: MLAdapter,
+        store: TelemetryStore | None = None,
     ) -> None:
         self._settings = settings
         self._weather = weather
         self._ml = ml
+        self._store = store
 
     async def evaluate(
         self,
@@ -93,12 +95,16 @@ class DecisionEngine:
 
         # Steps 3–4 — Sensor reading + ML inference
         if reading is None:
-            # Future: pull from TelemetryStore.latest() with freshness check.
-            # Phase 1: fall back to mock generator so the endpoint works
-            # without a live ESP32.
-            from ..mock.data_generator import sensor_reading as mock_sensor
-            reading = mock_sensor()
-            logger.debug("Using mock sensor reading (no live telemetry yet)")
+            if self._store is not None:
+                latest_stored = await self._store.latest()
+                if latest_stored is not None:
+                    reading = latest_stored
+                    logger.debug("Using live sensor reading from telemetry store: %s", reading.device_id)
+
+            if reading is None:
+                from ..mock.data_generator import sensor_reading as mock_sensor
+                reading = mock_sensor()
+                logger.debug("Using fallback sensor reading (no stored telemetry yet)")
 
         ml_result = await self._ml.predict(reading)
         logger.info("ML prediction: %s", ml_result.recommendation)
