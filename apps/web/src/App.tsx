@@ -131,15 +131,18 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" && event.clientX <= 36) {
+    const handlePointerMove = (event: MouseEvent | PointerEvent) => {
+      const isTouch = "pointerType" in event && event.pointerType === "touch";
+      if (!isTouch && event.clientX <= 36) {
         revealDashboard();
       }
     };
 
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("mousemove", handlePointerMove);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("mousemove", handlePointerMove);
       if (dashboardHideTimerRef.current !== null) {
         window.clearTimeout(dashboardHideTimerRef.current);
       }
