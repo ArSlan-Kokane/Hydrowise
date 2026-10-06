@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
@@ -112,10 +112,39 @@ export function App() {
   const [notice, setNotice] = useState("");
   const [region, setRegion] = useState("KALYANPUR BLOCK");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dashboardVisible, setDashboardVisible] = useState(false);
+  const dashboardHideTimerRef = useRef<number | null>(null);
 
   const [signals, setSignals] = useState<CommunitySignal[]>(initialSignals);
 
   const current = initialScenarios[scenario];
+
+  const revealDashboard = useCallback((duration = 2200) => {
+    setDashboardVisible(true);
+    if (dashboardHideTimerRef.current !== null) {
+      window.clearTimeout(dashboardHideTimerRef.current);
+    }
+    dashboardHideTimerRef.current = window.setTimeout(() => {
+      setDashboardVisible(false);
+      dashboardHideTimerRef.current = null;
+    }, duration);
+  }, []);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== "touch" && event.clientX <= 36) {
+        revealDashboard();
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      if (dashboardHideTimerRef.current !== null) {
+        window.clearTimeout(dashboardHideTimerRef.current);
+      }
+    };
+  }, [revealDashboard]);
 
   const riskText = useMemo(() => {
     if (current.risk === "Critical") return "Multiple pressure signals need attention";
@@ -126,6 +155,7 @@ export function App() {
   // IntersectionObserver for scroll-based active section detection
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const activeRef = useRef(active);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -135,7 +165,11 @@ export function App() {
             const sectionId = entry.target.id;
             const sectionName = sectionIdToName(sectionId);
             if (sectionName) {
-              setActive(sectionName);
+              if (sectionName !== activeRef.current) {
+                activeRef.current = sectionName;
+                setActive(sectionName);
+                revealDashboard();
+              }
             }
           }
         });
@@ -153,7 +187,7 @@ export function App() {
     return () => {
       observerRef.current?.disconnect();
     };
-  }, []);
+  }, [revealDashboard]);
 
   const sectionIdToName = (id: string): string | null => {
     const mapping: { [key: string]: string } = {
@@ -253,7 +287,7 @@ export function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${dashboardVisible ? "dashboard-open" : "dashboard-closed"}`}>
       <SkipLink />
 
       {/* Main Sidebar */}
@@ -261,6 +295,8 @@ export function App() {
         active={active}
         setActive={setActive}
         isOpen={sidebarOpen}
+        dashboardVisible={dashboardVisible}
+        onRevealDashboard={() => revealDashboard(3200)}
         onClose={() => setSidebarOpen(false)}
         onOpenAdmin={() => setAdminOpen(true)}
       />
@@ -326,7 +362,7 @@ export function App() {
         <main className="page" id="main-content" role="main" tabIndex={-1}>
           {/* SECTION 01: OVERVIEW */}
           <section
-            ref={(el) => (sectionRefs.current["section-overview"] = el)}
+            ref={(el) => { sectionRefs.current["section-overview"] = el; }}
             id="section-overview"
             className="content-section"
             aria-label="Overview"
@@ -372,7 +408,7 @@ export function App() {
 
           {/* SECTION 02: GROUNDWATER MAP */}
           <section
-            ref={(el) => (sectionRefs.current["section-groundwater"] = el)}
+            ref={(el) => { sectionRefs.current["section-groundwater"] = el; }}
             id="section-groundwater"
             className="content-section"
             aria-label="Groundwater Map"
@@ -411,7 +447,7 @@ export function App() {
 
           {/* SECTION 03: FIELD CONDITIONS */}
           <section
-            ref={(el) => (sectionRefs.current["section-field-conditions"] = el)}
+            ref={(el) => { sectionRefs.current["section-field-conditions"] = el; }}
             id="section-field-conditions"
             className="content-section"
             aria-label="Field Conditions"
@@ -445,7 +481,7 @@ export function App() {
 
           {/* SECTION 04: COMMUNITY ALERTS */}
           <section
-            ref={(el) => (sectionRefs.current["section-community-alerts"] = el)}
+            ref={(el) => { sectionRefs.current["section-community-alerts"] = el; }}
             id="section-community-alerts"
             className="content-section"
             aria-label="Community Alerts"
@@ -471,7 +507,7 @@ export function App() {
 
           {/* SECTION 05: LOCAL ADMINISTRATION */}
           <section
-            ref={(el) => (sectionRefs.current["section-administration"] = el)}
+            ref={(el) => { sectionRefs.current["section-administration"] = el; }}
             id="section-administration"
             className="content-section"
             aria-label="Local Administration"

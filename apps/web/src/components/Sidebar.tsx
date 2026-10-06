@@ -5,11 +5,21 @@ interface SidebarProps {
   active: string;
   setActive: (value: string) => void;
   isOpen: boolean;
+  dashboardVisible: boolean;
+  onRevealDashboard: () => void;
   onClose: () => void;
   onOpenAdmin: () => void;
 }
 
-export function Sidebar({ active, setActive, isOpen, onClose, onOpenAdmin }: SidebarProps) {
+export function Sidebar({
+  active,
+  setActive,
+  isOpen,
+  dashboardVisible,
+  onRevealDashboard,
+  onClose,
+  onOpenAdmin,
+}: SidebarProps) {
   const nav: [string, string][] = [
     ["overview", "Overview"],
     ["map", "Groundwater map"],
@@ -42,7 +52,12 @@ export function Sidebar({ active, setActive, isOpen, onClose, onOpenAdmin }: Sid
   };
 
   return (
-    <aside className={`sidebar ${isOpen ? "open" : ""}`} aria-label="Main navigation">
+    <aside
+      className={`sidebar ${isOpen ? "open" : ""} ${dashboardVisible ? "dashboard-visible" : "dashboard-hidden"}`}
+      aria-label="Main navigation"
+      onMouseEnter={onRevealDashboard}
+      onFocus={onRevealDashboard}
+    >
       {/* Brand Header with Hexagonal HydroWise Logo */}
       <div className="side-brand">
         <a
