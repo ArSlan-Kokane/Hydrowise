@@ -17,6 +17,8 @@ __pycache__/
 # ML outputs and local data
 ml/data/processed/*
 ml/models/*
+!ml/models/model_blueprint.json
+!ml/models/*.md
 !ml/data/processed/.gitkeep
 !ml/models/.gitkeep
 

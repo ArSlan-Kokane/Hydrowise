@@ -133,6 +133,37 @@ class SklearnMLAdapter:
         return MLResult(recommendation=recommendation, model_version=self._version)
 
 
+class ProprietaryMLAdapter:
+    """
+    Adapter that executes the patentable AMHOE proprietary mathematical inference engine.
+    Completely dependency-free, transparent, and deterministic.
+    """
+
+    def __init__(self, settings: Settings) -> None:
+        import os
+        from ml.src.inference_engine import ProprietaryInferenceEngine
+        artifact_path = settings.model_artifact_path
+        if not os.path.isabs(artifact_path):
+            # Resolve relative to repo root if needed
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+            candidate = os.path.join(repo_root, artifact_path)
+            if os.path.exists(candidate):
+                artifact_path = candidate
+
+        self._engine = ProprietaryInferenceEngine(blueprint_path=artifact_path)
+        self._version = self._engine.version
+        logger.info("Proprietary ML Adapter loaded: %s from %s", self._version, artifact_path)
+
+    async def predict(self, reading: SensorReading) -> MLResult:
+        res = self._engine.predict(
+            soil_moisture=reading.soil_moisture_percent,
+            temperature_C=reading.temperature_C,
+            humidity=reading.humidity_percent,
+        )
+        recommendation: Recommendation = "IRRIGATE" if res["recommendation"] == "IRRIGATE" else "DO_NOT_IRRIGATE"
+        return MLResult(recommendation=recommendation, model_version=self._version)
+
+
 # --------------------------------------------------------------------------- #
 # Dependency factory                                                            #
 # --------------------------------------------------------------------------- #
@@ -141,8 +172,8 @@ def get_ml_adapter(settings: Settings) -> MLAdapter:
     """
     Return the appropriate ML adapter based on current settings.
 
-    Switching to the real model requires only setting MODEL_ARTIFACT_PATH in
-    the environment — no route or decision-engine changes needed.
+    Switching between mock, proprietary AMHOE blueprint (.json), or scikit-learn
+    requires only setting MODEL_ARTIFACT_PATH in the environment.
     """
     if settings.use_mock_ml:
         logger.info(
@@ -150,6 +181,10 @@ def get_ml_adapter(settings: Settings) -> MLAdapter:
             "(set MODEL_ARTIFACT_PATH to enable the trained model)"
         )
         return MockMLAdapter(settings)
+
+    if settings.model_artifact_path.lower().endswith(".json"):
+        logger.info("ML adapter: proprietary AMHOE mathematical blueprint (%s)", settings.model_artifact_path)
+        return ProprietaryMLAdapter(settings)
 
     logger.info("ML adapter: sklearn artifact (%s)", settings.model_artifact_path)
     return SklearnMLAdapter(settings)

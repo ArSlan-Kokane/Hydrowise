@@ -1,0 +1,38 @@
+{
+  "architecture": "Edge-to-Cloud Distributed Non-Linear Hyperplane Surface (AMHOE)",
+  "version": "AMHOE-v1.0-proprietary",
+  "patent_classification": "Distributed Autonomous Agricultural Irrigation Inference System",
+  "description": "Mathematical non-linear decision boundary optimized offline for standalone zero-dependency execution.",
+  "normalization": {
+    "soil_moisture_%": {
+      "min": 10.0,
+      "max": 95.0
+    },
+    "temperature_C": {
+      "min": 15.0,
+      "max": 42.0
+    },
+    "humidity_%": {
+      "min": 25.0,
+      "max": 95.0
+    }
+  },
+  "weights": {
+    "soil_moisture_%": -4.40904,
+    "temperature_C": 2.20276,
+    "humidity_%": -0.80249
+  },
+  "interactions": {
+    "thermal_evaporative_factor": 1.61914,
+    "root_desiccation_factor": 2.71914
+  },
+  "bias": 0.04626,
+  "threshold": 0.41,
+  "evaluation_metrics": {
+    "test_accuracy": 0.8625,
+    "test_precision": 0.8287,
+    "test_recall": 0.8621,
+    "test_f1": 0.8451,
+    "samples_evaluated": 400
+  }
+}
