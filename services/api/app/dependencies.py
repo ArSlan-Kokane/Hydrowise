@@ -73,13 +73,13 @@ def ingestion_dep(
 # --------------------------------------------------------------------------- #
 
 def device_secret_dep(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     x_device_secret: str | None = Header(default=None, alias="X-Device-Secret"),
 ) -> str | None:
     """
-    Extract the device authentication secret from the request header.
+    Extract the device authentication key/secret from request headers.
 
-    Routes that require device auth should include this dependency.
-    The IngestionService handles the actual validation so that the route
-    handler stays free of auth logic.
+    Checks X-API-Key first, then falls back to X-Device-Secret.
+    The IngestionService handles the validation.
     """
-    return x_device_secret
+    return x_api_key or x_device_secret

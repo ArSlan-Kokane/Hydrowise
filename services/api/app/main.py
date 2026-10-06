@@ -29,11 +29,18 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Log the active adapter configuration on startup."""
+    """Log the active adapter configuration on startup and initialize database."""
     settings = get_settings()
+    from .ingestion.telemetry import get_telemetry_store
+
+    store = get_telemetry_store(settings)
+    if hasattr(store, "init_db"):
+        store.init_db()
+
     logger.info(
-        "HydroWise API starting — env=%s  weather=%s  ml=%s",
+        "HydroWise API starting — env=%s  db=%s  weather=%s  ml=%s",
         settings.hydrowise_env,
+        settings.sqlite_db_path,
         "mock" if settings.use_mock_weather else f"live ({settings.weather_api_base_url})",
         "mock" if settings.use_mock_ml else f"sklearn ({settings.model_artifact_path})",
     )
@@ -62,7 +69,18 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(router)
+    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api")
+
+    @app.get("/")
+    def root():
+        return {
+            "name": "HydroWise API",
+            "version": "0.1.0",
+            "docs": "/docs",
+            "health": "/api/health",
+        }
+
     return app
 
 
