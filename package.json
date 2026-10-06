@@ -6,7 +6,9 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "web:dev": "pnpm --dir apps/web dev",
+    "web:build": "pnpm --dir apps/web build",
     "api:dev": "uvicorn services.api.app.main:app --reload",
+    "simulate": "python3 services/api/scripts/simulate_sensor.py",
     "check": "pnpm --dir apps/web check"
   }
 }
