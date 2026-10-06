@@ -15,7 +15,7 @@ services:
           name: hydrowise-db
           property: connectionString
       - key: CORS_ORIGINS
-        value: https://your-dashboard-domain.onrender.com,https://localhost:5173
+        value: '["*"]'
       - key: WEATHER_API_BASE_URL
         value: ""
       - key: WEATHER_API_KEY

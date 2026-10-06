@@ -15,8 +15,9 @@ and CI fast without requiring real credentials.
 
 from functools import lru_cache
 from typing import Literal
+import json
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -133,11 +134,25 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # API service                                                          #
     # ------------------------------------------------------------------ #
-    api_cors_origins: list[str] = Field(
-        default=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
+    cors_origins_str: str = Field(
+        default='["http://localhost:5173","http://127.0.0.1:5173","*"]',
         alias="CORS_ORIGINS",
-        description="Allowed CORS origins for the web dashboard.",
+        description="Allowed CORS origins for the web dashboard (JSON string or comma-separated).",
     )
+
+    @property
+    def api_cors_origins(self) -> list[str]:
+        """Parse and return CORS origins as a list."""
+        if isinstance(self.cors_origins_str, list):
+            return self.cors_origins_str
+        if not self.cors_origins_str or self.cors_origins_str.strip() == "":
+            return ["http://localhost:5173", "http://127.0.0.1:5173", "*"]
+        # Try JSON first
+        try:
+            return json.loads(self.cors_origins_str)
+        except json.JSONDecodeError:
+            # Fall back to comma-separated
+            return [origin.strip() for origin in self.cors_origins_str.split(",")]
 
     @property
     def use_mock_weather(self) -> bool:

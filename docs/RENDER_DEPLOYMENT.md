@@ -53,7 +53,7 @@ This guide explains how to deploy the HydroWise API to Render.
    HYDROWISE_ENV=production
    DATABASE_URL=<paste your Internal Database URL from above>
    DEVICE_API_KEY=<generate a secure random key>
-   CORS_ORIGINS=https://your-dashboard-domain.onrender.com,https://localhost:5173
+   CORS_ORIGINS=["https://your-dashboard-domain.onrender.com","https://localhost:5173"]
    WEATHER_API_BASE_URL=
    WEATHER_API_KEY=
    MODEL_ARTIFACT_PATH=
