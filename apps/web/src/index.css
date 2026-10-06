@@ -156,10 +156,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .page {
-  padding: 24px clamp(20px, 3vw, 44px) 50px;
+  padding: 24px clamp(20px, 3vw, 44px) 80px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 40px;
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;
@@ -383,6 +383,156 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .sidebar-overlay {
   display: none;
+}
+
+/* ==========================================================================
+   Content Sections Architecture
+   ========================================================================== */
+
+.content-section {
+  position: relative;
+  scroll-margin-top: calc(var(--header-height) + 24px);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: sectionFadeIn 600ms ease forwards;
+}
+
+@keyframes sectionFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.section-number {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-bright);
+  letter-spacing: 0.15em;
+  padding-bottom: 2px;
+}
+
+.section-title-group {
+  flex: 1;
+}
+
+.section-heading {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.section-subheading {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Compact Risk Preview in Overview */
+.compact-risk-preview {
+  margin-top: 24px;
+}
+
+/* Scroll Indicator */
+.scroll-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 32px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: scrollBounce 2s ease-in-out infinite;
+}
+
+.scroll-indicator svg {
+  width: 12px;
+  height: 12px;
+  color: var(--green-bright);
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+/* Groundwater Map Workspace */
+.groundwater-map-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* Field Conditions Workspace */
+.field-conditions-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* Community Alerts Workspace */
+.community-alerts-workspace {
+  max-width: 900px;
+}
+
+/* Administration Workspace */
+.administration-workspace {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.open-admin-panel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 16px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: all 140ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.open-admin-panel-btn:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.open-admin-panel-btn svg {
+  width: 16px;
+  height: 16px;
+  color: var(--green-bright);
+}
+
+.open-admin-panel-btn svg:last-child {
+  color: var(--text-muted);
+  width: 12px;
+  height: 12px;
 }
 
 /* ==========================================================================
@@ -909,7 +1059,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .eq-bar.bar-4 { height: 22px; }
 
 /* ==========================================================================
-   Groundwater Map & Risk Picture Layout
+   Groundwater Map & Risk Picture Layout (Legacy - kept for compatibility)
    ========================================================================== */
 
 .map-layout {
@@ -1050,6 +1200,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border: 1px solid var(--border-subtle);
   background: #E8ECE6;
   user-select: none;
+}
+
+/* Larger map in dedicated workspace */
+.groundwater-map-workspace .map-canvas-container {
+  height: 520px;
 }
 
 .map-transformable-layer {
@@ -1576,7 +1731,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 /* ==========================================================================
-   Bottom 3-Column Grid
+   Bottom 3-Column Grid (Legacy - kept for backward compatibility)
    ========================================================================== */
 
 .bottom-three-grid {
@@ -1692,6 +1847,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   height: 85px;
   margin: 4px 0 6px;
 }
+
+/* Larger chart in Field Conditions workspace */
+.field-conditions-workspace .aquifer-svg-chart {
+  height: 140px;
+}
 .chart-date-axis {
   display: flex;
   justify-content: space-between;
@@ -1719,6 +1879,28 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .view-all-link svg {
   width: 10px;
   height: 10px;
+}
+
+/* Expanded signals list in dedicated workspace */
+.community-alerts-workspace .signals-feed-list {
+  gap: 12px;
+}
+
+.community-alerts-workspace .signal-entry {
+  padding: 12px 14px;
+}
+
+.community-alerts-workspace .signal-entry-body b {
+  font-size: 12.5px;
+}
+
+.community-alerts-workspace .signal-entry-body small {
+  font-size: 10.5px;
+  white-space: normal;
+}
+
+.community-alerts-workspace .bottom-card {
+  max-width: 100%;
 }
 
 .signals-feed-list {
@@ -2075,6 +2257,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .bottom-three-grid {
     grid-template-columns: 1fr 1fr;
   }
+  .groundwater-map-workspace {
+    grid-template-columns: 1fr;
+  }
+  .field-conditions-workspace {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -2139,6 +2327,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .map-canvas-container {
     height: 320px;
   }
+  .groundwater-map-workspace .map-canvas-container {
+    height: 400px;
+  }
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .section-heading {
+    font-size: 22px;
+  }
+  .groundwater-map-workspace,
+  .field-conditions-workspace {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2146,5 +2349,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .content-section {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .scroll-indicator {
+    animation: none;
   }
 }

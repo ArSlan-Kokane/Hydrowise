@@ -159,18 +159,11 @@ export function KpiRow({ current }: KpiRowProps) {
         </div>
 
         <div className="instrument-main-val">
-          <span className="stat-number">03</span>
+          <span className="stat-number">06</span>
           <span className="stat-label-small">needs review</span>
         </div>
 
-        <div className="instrument-subtext">2 field reports · 1 aquifer watch</div>
-
-        <div className="instrument-link-row">
-          <a href="#signals" className="instrument-link">
-            <span>View all signals</span>
-            <Icon name="chevron" />
-          </a>
-        </div>
+        <div className="instrument-subtext">4 field reports · 2 aquifer watch</div>
 
         <div className="instrument-metadata">
           <div className="meta-line">

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
@@ -58,6 +58,33 @@ const initialSignals: CommunitySignal[] = [
     observation: "Canal flow is normal after maintenance",
     time: "Yesterday",
   },
+  {
+    id: "sig-4",
+    initials: "PK",
+    type: "farmer",
+    sourceName: "Priya Kumari",
+    village: "Chandpura",
+    observation: "Water quality is clear, no sediment observed",
+    time: "3 hr",
+  },
+  {
+    id: "sig-5",
+    initials: "VS",
+    type: "council",
+    sourceName: "Village Sarpanch",
+    village: "Sultanpur",
+    observation: "Community well renovation completed successfully",
+    time: "5 hr",
+  },
+  {
+    id: "sig-6",
+    initials: "BJ",
+    type: "farmer",
+    sourceName: "Bijendra",
+    village: "Rampur",
+    observation: "Irrigation demand increasing for wheat crop",
+    time: "Yesterday",
+  },
 ];
 
 // Skip link component for keyboard accessibility
@@ -95,6 +122,49 @@ export function App() {
     if (current.risk === "High") return "Demand is outpacing natural recharge";
     return "Conditions are stable, with local variation";
   }, [current.risk]);
+
+  // IntersectionObserver for scroll-based active section detection
+  const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id;
+            const sectionName = sectionIdToName(sectionId);
+            if (sectionName) {
+              setActive(sectionName);
+            }
+          }
+        });
+      },
+      {
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: 0,
+      }
+    );
+
+    Object.values(sectionRefs.current).forEach((section) => {
+      if (section) observerRef.current?.observe(section);
+    });
+
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, []);
+
+  const sectionIdToName = (id: string): string | null => {
+    const mapping: { [key: string]: string } = {
+      "section-overview": "Overview",
+      "section-groundwater": "Groundwater map",
+      "section-field-conditions": "Field conditions",
+      "section-community-alerts": "Community alerts",
+      "section-administration": "Local administration",
+    };
+    return mapping[id] || null;
+  };
 
   const notify = (message: string) => {
     setNotice(message);
@@ -179,7 +249,7 @@ export function App() {
 
   const handleSelectWell = (wellId: string) => {
     setSelectedWellId(wellId);
-    document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("section-groundwater")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -254,19 +324,68 @@ export function App() {
 
         {/* Main Content Page */}
         <main className="page" id="main-content" role="main" tabIndex={-1}>
-          {/* Hero Section */}
-          <HeroSection
-            region={region}
-            onExportBrief={exportBrief}
-            onShareView={shareView}
-          />
+          {/* SECTION 01: OVERVIEW */}
+          <section
+            ref={(el) => (sectionRefs.current["section-overview"] = el)}
+            id="section-overview"
+            className="content-section"
+            aria-label="Overview"
+          >
+            <div className="section-header">
+              <span className="section-number">01</span>
+              <div className="section-title-group">
+                <h2 className="section-heading">OVERVIEW</h2>
+                <p className="section-subheading">Read the landscape. Act before scarcity.</p>
+              </div>
+            </div>
 
-          {/* 4 Instrument KPI Cards */}
-          <KpiRow current={current} />
+            {/* Hero Section */}
+            <HeroSection
+              region={region}
+              onExportBrief={exportBrief}
+              onShareView={shareView}
+            />
 
-          {/* Groundwater Map & Risk Picture Section */}
-          <section className="map-section" id="map-section" aria-label="Groundwater Map & Risk Analysis">
-            <div className="map-layout">
+            {/* 4 Instrument KPI Cards */}
+            <KpiRow current={current} />
+
+            {/* Compact Risk Preview */}
+            <div className="compact-risk-preview">
+              <RiskPicture
+                current={current}
+                riskText={riskText}
+                onOpenDetail={() => {
+                  document.getElementById("section-groundwater")?.scrollIntoView({ behavior: "smooth" });
+                  notify("Scrolling to detailed groundwater analysis");
+                }}
+              />
+            </div>
+
+            {/* Scroll indicator */}
+            <div className="scroll-indicator">
+              <span>Detailed intelligence below</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+          </section>
+
+          {/* SECTION 02: GROUNDWATER MAP */}
+          <section
+            ref={(el) => (sectionRefs.current["section-groundwater"] = el)}
+            id="section-groundwater"
+            className="content-section"
+            aria-label="Groundwater Map"
+          >
+            <div className="section-header">
+              <span className="section-number">02</span>
+              <div className="section-title-group">
+                <h2 className="section-heading">GROUNDWATER MAP</h2>
+                <p className="section-subheading">What is happening beneath us?</p>
+              </div>
+            </div>
+
+            <div className="groundwater-map-workspace">
               <GroundwaterMap
                 wells={initialWells}
                 scenario={scenario}
@@ -290,31 +409,91 @@ export function App() {
             </div>
           </section>
 
-          {/* Bottom 3-Column Grid: Aquifer Movement, Community Signals, and Explore the System */}
-          <section className="bottom-three-grid" aria-label="Detailed environmental telemetry">
-            <AquiferMovement
-              period={period}
-              scenario={scenario}
-              onPeriodChange={handlePeriodChange}
-            />
+          {/* SECTION 03: FIELD CONDITIONS */}
+          <section
+            ref={(el) => (sectionRefs.current["section-field-conditions"] = el)}
+            id="section-field-conditions"
+            className="content-section"
+            aria-label="Field Conditions"
+          >
+            <div className="section-header">
+              <span className="section-number">03</span>
+              <div className="section-title-group">
+                <h2 className="section-heading">FIELD CONDITIONS</h2>
+                <p className="section-subheading">The water table is a story, not a number.</p>
+              </div>
+            </div>
 
-            <CommunitySignals
-              signals={signals}
-              onViewAll={() => {
-                document.getElementById("signals")?.scrollIntoView({ behavior: "smooth" });
-                notify("Viewing all 3 active community signal logs");
-              }}
-              onOpenReportModal={() => setReportModalOpen(true)}
-            />
+            <div className="field-conditions-workspace">
+              <AquiferMovement
+                period={period}
+                scenario={scenario}
+                onPeriodChange={handlePeriodChange}
+                large={true}
+              />
 
-            <ScenarioBar
-              scenarios={initialScenarios}
-              currentScenario={scenario}
-              onSelectScenario={(newScen) => {
-                setScenario(newScen);
-                notify(`Switched to "${initialScenarios[newScen].label}" scenario`);
-              }}
-            />
+              <ScenarioBar
+                scenarios={initialScenarios}
+                currentScenario={scenario}
+                onSelectScenario={(newScen) => {
+                  setScenario(newScen);
+                  notify(`Switched to "${initialScenarios[newScen].label}" scenario`);
+                }}
+              />
+            </div>
+          </section>
+
+          {/* SECTION 04: COMMUNITY ALERTS */}
+          <section
+            ref={(el) => (sectionRefs.current["section-community-alerts"] = el)}
+            id="section-community-alerts"
+            className="content-section"
+            aria-label="Community Alerts"
+          >
+            <div className="section-header">
+              <span className="section-number">04</span>
+              <div className="section-title-group">
+                <h2 className="section-heading">COMMUNITY SIGNALS</h2>
+                <p className="section-subheading">People on the ground.</p>
+              </div>
+            </div>
+
+            <div className="community-alerts-workspace">
+              <CommunitySignals
+                signals={signals}
+                onViewAll={() => {
+                  notify("Already viewing all community signals");
+                }}
+                onOpenReportModal={() => setReportModalOpen(true)}
+              />
+            </div>
+          </section>
+
+          {/* SECTION 05: LOCAL ADMINISTRATION */}
+          <section
+            ref={(el) => (sectionRefs.current["section-administration"] = el)}
+            id="section-administration"
+            className="content-section"
+            aria-label="Local Administration"
+          >
+            <div className="section-header">
+              <span className="section-number">05</span>
+              <div className="section-title-group">
+                <h2 className="section-heading">LOCAL ADMINISTRATION</h2>
+                <p className="section-subheading">Coordinate the response.</p>
+              </div>
+            </div>
+
+            <div className="administration-workspace">
+              <button
+                className="open-admin-panel-btn"
+                onClick={() => setAdminOpen(true)}
+              >
+                <Icon name="council" />
+                <span>Open Administration Panel</span>
+                <Icon name="chevron" />
+              </button>
+            </div>
           </section>
         </main>
 

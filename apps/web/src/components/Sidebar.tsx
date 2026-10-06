@@ -15,20 +15,29 @@ export function Sidebar({ active, setActive, isOpen, onClose, onOpenAdmin }: Sid
     ["map", "Groundwater map"],
     ["field", "Field conditions"],
     ["alerts", "Community alerts"],
+    ["council", "Local administration"],
   ];
 
   const handleNavClick = (label: string) => {
     setActive(label);
     onClose();
 
-    if (label === "Groundwater map") {
-      document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth" });
-    } else if (label === "Community alerts") {
-      document.getElementById("signals")?.scrollIntoView({ behavior: "smooth" });
-    } else if (label === "Field conditions") {
-      document.getElementById("kpi-section")?.scrollIntoView({ behavior: "smooth" });
-    } else if (label === "Overview") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    // Special handling for Local administration - open drawer instead of scrolling
+    if (label === "Local administration") {
+      onOpenAdmin();
+      return;
+    }
+
+    const sectionIdMap: { [key: string]: string } = {
+      "Overview": "section-overview",
+      "Groundwater map": "section-groundwater",
+      "Field conditions": "section-field-conditions",
+      "Community alerts": "section-community-alerts",
+    };
+
+    const sectionId = sectionIdMap[label];
+    if (sectionId) {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -97,8 +106,8 @@ export function Sidebar({ active, setActive, isOpen, onClose, onOpenAdmin }: Sid
               <Icon name={icon} />
               <span>{label}</span>
               {label === "Community alerts" && (
-                <span className="nav-badge-amber" aria-label="3 alerts">
-                  3
+                <span className="nav-badge-amber" aria-label="6 alerts">
+                  6
                 </span>
               )}
             </button>
@@ -106,24 +115,7 @@ export function Sidebar({ active, setActive, isOpen, onClose, onOpenAdmin }: Sid
         })}
       </nav>
 
-      {/* Public Systems Navigation */}
-      <div className="workspace-label admin-label" role="heading" aria-level={2}>
-        PUBLIC SYSTEMS
-      </div>
-      <nav aria-label="Public systems navigation">
-        <button
-          className={`nav-item ${active === "Local administration" ? "active" : ""}`}
-          onClick={() => {
-            setActive("Local administration");
-            onOpenAdmin();
-            onClose();
-          }}
-          aria-current={active === "Local administration" ? "page" : undefined}
-        >
-          <Icon name="council" />
-          <span>Local administration</span>
-        </button>
-      </nav>
+
 
       {/* Subtle Topographic Terrain Artwork in lower sidebar */}
       <div className="sidebar-mesh-backdrop" aria-hidden="true">

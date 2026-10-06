@@ -14,7 +14,7 @@ export interface CommunitySignal {
 
 interface CommunitySignalsProps {
   signals: CommunitySignal[];
-  onViewAll: () => void;
+  onViewAll?: () => void;
   onOpenReportModal: () => void;
 }
 
@@ -40,10 +40,12 @@ export function CommunitySignals({ signals, onViewAll, onOpenReportModal }: Comm
           </svg>
           <span className="card-header-label">02 / COMMUNITY SIGNALS</span>
         </div>
-        <button className="view-all-link" onClick={onViewAll}>
-          <span>View all</span>
-          <Icon name="chevron" />
-        </button>
+        {onViewAll && (
+          <button className="view-all-link" onClick={onViewAll}>
+            <span>View all</span>
+            <Icon name="chevron" />
+          </button>
+        )}
       </div>
 
       <h3 id="signals-heading" className="bottom-card-headline">

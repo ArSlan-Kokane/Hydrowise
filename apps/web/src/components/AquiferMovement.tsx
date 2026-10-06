@@ -5,9 +5,10 @@ interface AquiferMovementProps {
   period: number;
   scenario: string;
   onPeriodChange: () => void;
+  large?: boolean;
 }
 
-export function AquiferMovement({ period, scenario, onPeriodChange }: AquiferMovementProps) {
+export function AquiferMovement({ period, scenario, onPeriodChange, large = false }: AquiferMovementProps) {
   const stressed = scenario === "stress" || scenario === "heat";
   const movementVal =
     scenario === "stress"
@@ -65,7 +66,7 @@ export function AquiferMovement({ period, scenario, onPeriodChange }: AquiferMov
       <div className="chart-canvas-wrap">
         <svg
           className="aquifer-svg-chart"
-          viewBox="0 0 420 110"
+          viewBox={large ? "0 0 420 180" : "0 0 420 110"}
           preserveAspectRatio="none"
           aria-label="Aquifer water table trend line"
         >
@@ -77,18 +78,24 @@ export function AquiferMovement({ period, scenario, onPeriodChange }: AquiferMov
           </defs>
 
           {/* Dotted horizontal grid lines */}
-          <line x1="0" y1="25" x2="420" y2="25" stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
-          <line x1="0" y1="55" x2="420" y2="55" stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
-          <line x1="0" y1="85" x2="420" y2="85" stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1="0" y1={large ? "40" : "25"} x2="420" y2={large ? "40" : "25"} stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1="0" y1={large ? "90" : "55"} x2="420" y2={large ? "90" : "55"} stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1="0" y1={large ? "140" : "85"} x2="420" y2={large ? "140" : "85"} stroke="#E2EAE4" strokeWidth="1" strokeDasharray="3 3" />
 
           {/* Area under curve */}
           <path
             d={
               stressed
-                ? "M0 25 C60 40, 140 50, 220 70 S340 95, 420 102 V110 H0 Z"
+                ? large
+                  ? "M0 40 C60 65, 140 85, 220 115 S340 155, 420 168 V180 H0 Z"
+                  : "M0 25 C60 40, 140 50, 220 70 S340 95, 420 102 V110 H0 Z"
                 : scenario === "rain"
-                ? "M0 65 C60 55, 140 45, 220 30 S340 18, 420 12 V110 H0 Z"
-                : "M0 45 C70 42, 140 55, 220 50 S340 70, 420 62 V110 H0 Z"
+                ? large
+                  ? "M0 105 C60 90, 140 75, 220 50 S340 30, 420 20 V180 H0 Z"
+                  : "M0 65 C60 55, 140 45, 220 30 S340 18, 420 12 V110 H0 Z"
+                : large
+                  ? "M0 75 C70 70, 140 95, 220 85 S340 115, 420 100 V180 H0 Z"
+                  : "M0 45 C70 42, 140 55, 220 50 S340 70, 420 62 V110 H0 Z"
             }
             fill="url(#aquifer-fill)"
           />
@@ -97,10 +104,16 @@ export function AquiferMovement({ period, scenario, onPeriodChange }: AquiferMov
           <path
             d={
               stressed
-                ? "M0 25 C60 40, 140 50, 220 70 S340 95, 420 102"
+                ? large
+                  ? "M0 40 C60 65, 140 85, 220 115 S340 155, 420 168"
+                  : "M0 25 C60 40, 140 50, 220 70 S340 95, 420 102"
                 : scenario === "rain"
-                ? "M0 65 C60 55, 140 45, 220 30 S340 18, 420 12"
-                : "M0 45 C70 42, 140 55, 220 50 S340 70, 420 62"
+                ? large
+                  ? "M0 105 C60 90, 140 75, 220 50 S340 30, 420 20"
+                  : "M0 65 C60 55, 140 45, 220 30 S340 18, 420 12"
+                : large
+                  ? "M0 75 C70 70, 140 95, 220 85 S340 115, 420 100"
+                  : "M0 45 C70 42, 140 55, 220 50 S340 70, 420 62"
             }
             fill="none"
             stroke="#22A366"
@@ -109,8 +122,44 @@ export function AquiferMovement({ period, scenario, onPeriodChange }: AquiferMov
           />
 
           {/* Live Node Beacon */}
-          <circle cx="418" cy={stressed ? 102 : scenario === "rain" ? 12 : 62} r="4" fill="#22A366" />
-          <circle cx="418" cy={stressed ? 102 : scenario === "rain" ? 12 : 62} r="8" fill="none" stroke="#22A366" opacity="0.3" />
+          <circle
+            cx="418"
+            cy={
+              stressed
+                ? large
+                  ? 168
+                  : 102
+                : scenario === "rain"
+                ? large
+                  ? 20
+                  : 12
+                : large
+                  ? 100
+                  : 62
+            }
+            r="4"
+            fill="#22A366"
+          />
+          <circle
+            cx="418"
+            cy={
+              stressed
+                ? large
+                  ? 168
+                  : 102
+                : scenario === "rain"
+                ? large
+                  ? 20
+                  : 12
+                : large
+                  ? 100
+                  : 62
+            }
+            r="8"
+            fill="none"
+            stroke="#22A366"
+            opacity="0.3"
+          />
         </svg>
 
         <div className="chart-date-axis">
