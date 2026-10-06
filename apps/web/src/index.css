@@ -181,18 +181,22 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   left: 0;
   z-index: 100;
   padding: 20px 14px 18px;
-  transition: transform 320ms ease, opacity 320ms ease, box-shadow 320ms ease;
+  transition:
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease,
+    box-shadow 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
 }
 
 /* Keep navigation out of the reading path until the user asks for it. */
 .sidebar.dashboard-hidden {
-  transform: translateX(calc(-100% + 10px));
+  transform: translate3d(calc(-100% + 10px), 0, 0);
   opacity: 0;
   box-shadow: none;
   pointer-events: none;
 }
 .sidebar.dashboard-visible {
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
   opacity: 1;
   box-shadow: 8px 0 28px rgba(16, 43, 33, 0.08);
 }

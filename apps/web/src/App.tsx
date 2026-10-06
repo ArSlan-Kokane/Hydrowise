@@ -329,6 +329,7 @@ export function App() {
         dashboardVisible={dashboardVisible}
         onSidebarEnter={handleSidebarEnter}
         onSidebarLeave={handleSidebarLeave}
+        onSidebarFocus={() => revealDashboard()}
         onClose={() => setSidebarOpen(false)}
         onOpenAdmin={() => setAdminOpen(true)}
       />

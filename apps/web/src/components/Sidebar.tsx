@@ -8,6 +8,7 @@ interface SidebarProps {
   dashboardVisible: boolean;
   onSidebarEnter: () => void;
   onSidebarLeave: () => void;
+  onSidebarFocus: () => void;
   onClose: () => void;
   onOpenAdmin: () => void;
 }
@@ -19,6 +20,7 @@ export function Sidebar({
   dashboardVisible,
   onSidebarEnter,
   onSidebarLeave,
+  onSidebarFocus,
   onClose,
   onOpenAdmin,
 }: SidebarProps) {
@@ -59,7 +61,7 @@ export function Sidebar({
       aria-label="Main navigation"
       onMouseEnter={onSidebarEnter}
       onMouseLeave={onSidebarLeave}
-      onFocus={onSidebarEnter}
+      onFocus={onSidebarFocus}
     >
       {/* Brand Header with Hexagonal HydroWise Logo */}
       <div className="side-brand">
