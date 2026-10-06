@@ -115,14 +115,39 @@ export function App() {
   const [dashboardVisible, setDashboardVisible] = useState(false);
   const dashboardHideTimerRef = useRef<number | null>(null);
   const dashboardVisibleRef = useRef(false);
+  const sidebarHoveredRef = useRef(false);
 
   const [signals, setSignals] = useState<CommunitySignal[]>(initialSignals);
 
   const current = initialScenarios[scenario];
 
-  const revealDashboard = useCallback((duration = 2200) => {
+  const revealDashboard = useCallback((duration = 1800) => {
     dashboardVisibleRef.current = true;
     setDashboardVisible(true);
+    if (dashboardHideTimerRef.current !== null) {
+      window.clearTimeout(dashboardHideTimerRef.current);
+    }
+    dashboardHideTimerRef.current = window.setTimeout(() => {
+      if (!sidebarHoveredRef.current) {
+        dashboardVisibleRef.current = false;
+        setDashboardVisible(false);
+      }
+      dashboardHideTimerRef.current = null;
+    }, duration);
+  }, []);
+
+  const handleSidebarEnter = useCallback(() => {
+    sidebarHoveredRef.current = true;
+    dashboardVisibleRef.current = true;
+    setDashboardVisible(true);
+    if (dashboardHideTimerRef.current !== null) {
+      window.clearTimeout(dashboardHideTimerRef.current);
+      dashboardHideTimerRef.current = null;
+    }
+  }, []);
+
+  const handleSidebarLeave = useCallback(() => {
+    sidebarHoveredRef.current = false;
     if (dashboardHideTimerRef.current !== null) {
       window.clearTimeout(dashboardHideTimerRef.current);
     }
@@ -130,7 +155,7 @@ export function App() {
       dashboardVisibleRef.current = false;
       setDashboardVisible(false);
       dashboardHideTimerRef.current = null;
-    }, duration);
+    }, 260);
   }, []);
 
   useEffect(() => {
@@ -302,7 +327,8 @@ export function App() {
         setActive={setActive}
         isOpen={sidebarOpen}
         dashboardVisible={dashboardVisible}
-        onRevealDashboard={() => revealDashboard(3200)}
+        onSidebarEnter={handleSidebarEnter}
+        onSidebarLeave={handleSidebarLeave}
         onClose={() => setSidebarOpen(false)}
         onOpenAdmin={() => setAdminOpen(true)}
       />

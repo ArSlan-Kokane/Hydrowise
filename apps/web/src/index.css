@@ -2289,6 +2289,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   }
   .sidebar.open {
     transform: translateX(0);
+    opacity: 1;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   }
   .sidebar-close {

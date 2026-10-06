@@ -6,7 +6,8 @@ interface SidebarProps {
   setActive: (value: string) => void;
   isOpen: boolean;
   dashboardVisible: boolean;
-  onRevealDashboard: () => void;
+  onSidebarEnter: () => void;
+  onSidebarLeave: () => void;
   onClose: () => void;
   onOpenAdmin: () => void;
 }
@@ -16,7 +17,8 @@ export function Sidebar({
   setActive,
   isOpen,
   dashboardVisible,
-  onRevealDashboard,
+  onSidebarEnter,
+  onSidebarLeave,
   onClose,
   onOpenAdmin,
 }: SidebarProps) {
@@ -55,8 +57,9 @@ export function Sidebar({
     <aside
       className={`sidebar ${isOpen ? "open" : ""} ${dashboardVisible ? "dashboard-visible" : "dashboard-hidden"}`}
       aria-label="Main navigation"
-      onMouseEnter={onRevealDashboard}
-      onFocus={onRevealDashboard}
+      onMouseEnter={onSidebarEnter}
+      onMouseLeave={onSidebarLeave}
+      onFocus={onSidebarEnter}
     >
       {/* Brand Header with Hexagonal HydroWise Logo */}
       <div className="side-brand">
