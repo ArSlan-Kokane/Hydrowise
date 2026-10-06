@@ -10,6 +10,7 @@
     "api:dev": "uvicorn services.api.app.main:app --reload",
     "simulate": "python3 services/api/scripts/simulate_sensor.py",
     "keep-alive": "python3 scripts/keep-alive.py",
-    "check": "pnpm --dir apps/web check"
+    "check": "pnpm --dir apps/web check",
+    "test:api": "pytest services/api"
   }
 }
