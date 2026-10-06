@@ -31,6 +31,13 @@ from typing import Protocol, runtime_checkable
 from ..config import Settings
 from ..models.schemas import SensorReading
 
+# Import PostgreSQL support if available
+try:
+    import asyncpg
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -224,6 +231,140 @@ InMemoryTelemetryStore = SqliteTelemetryStore
 
 
 # --------------------------------------------------------------------------- #
+# PostgreSQL telemetry store (for cloud deployment)                           #
+# --------------------------------------------------------------------------- #
+
+class PostgresTelemetryStore:
+    """
+    PostgreSQL store for sensor readings (for cloud deployment).
+
+    Uses asyncpg for async database operations.
+    Connection string format: postgresql://user:password@host:port/database
+    """
+
+    def __init__(self, database_url: str) -> None:
+        if not POSTGRES_AVAILABLE:
+            raise ImportError("asyncpg is required for PostgreSQL support. Install it with: pip install asyncpg")
+        self._database_url = database_url
+        self._pool = None
+
+    async def _get_pool(self):
+        """Create or return the connection pool."""
+        if self._pool is None:
+            self._pool = await asyncpg.create_pool(self._database_url)
+        return self._pool
+
+    async def init_db(self) -> None:
+        """Create sensor_readings table if it does not exist."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS sensor_readings (
+                    id SERIAL PRIMARY KEY,
+                    device_id TEXT NOT NULL,
+                    temperature_C REAL NOT NULL,
+                    humidity_pct REAL NOT NULL,
+                    soil_moisture_pct REAL NOT NULL,
+                    captured_at TIMESTAMPTZ NOT NULL,
+                    received_at TIMESTAMPTZ NOT NULL
+                );
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sensor_readings_captured_at
+                ON sensor_readings(captured_at DESC);
+            """)
+        logger.info("PostgresTelemetryStore: database initialized")
+
+    async def save(self, reading: SensorReading) -> None:
+        pool = await self._get_pool()
+        cap_str = (
+            reading.captured_at.isoformat()
+            if reading.captured_at
+            else datetime.now(timezone.utc).isoformat()
+        )
+        rec_str = (
+            reading.received_at.isoformat()
+            if reading.received_at
+            else datetime.now(timezone.utc).isoformat()
+        )
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO sensor_readings (
+                    device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                ) VALUES ($1, $2, $3, $4, $5, $6);
+                """,
+                reading.device_id,
+                reading.temperature_C,
+                reading.humidity_percent,
+                reading.soil_moisture_percent,
+                cap_str,
+                rec_str,
+            )
+        logger.debug("PostgresTelemetryStore: persisted reading from %s", reading.device_id)
+
+    async def latest(self) -> SensorReading | None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                FROM sensor_readings
+                ORDER BY id DESC
+                LIMIT 1;
+                """
+            )
+            if row is None:
+                return None
+            return self._row_to_model(row)
+
+    async def history(self, limit: int = 24) -> list[SensorReading]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+            rows = await conn.fetch(
+                """
+                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                FROM sensor_readings
+                WHERE captured_at >= $1
+                ORDER BY captured_at DESC
+                LIMIT $2;
+                """,
+                cutoff,
+                limit,
+            )
+            if not rows:
+                rows = await conn.fetch(
+                    """
+                    SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                    FROM sensor_readings
+                    ORDER BY id DESC
+                    LIMIT $1;
+                    """,
+                    limit,
+                )
+            return [self._row_to_model(r) for r in rows]
+
+    @staticmethod
+    def _row_to_model(row) -> SensorReading:
+        rec_val = row["received_at"]
+        return SensorReading(
+            device_id=row["device_id"],
+            temperature_C=row["temperature_C"],
+            humidity_percent=row["humidity_pct"],
+            soil_moisture_percent=row["soil_moisture_pct"],
+            captured_at=row["captured_at"],
+            received_at=rec_val,
+        )
+
+    async def close(self) -> None:
+        """Close the connection pool."""
+        if self._pool:
+            await self._pool.close()
+            self._pool = None
+
+
+# --------------------------------------------------------------------------- #
 # Ingestion service                                                             #
 # --------------------------------------------------------------------------- #
 
@@ -303,14 +444,24 @@ class IngestionService:
 # Telemetry store singleton / dependency factory                              #
 # --------------------------------------------------------------------------- #
 
-_store_cache: dict[str, SqliteTelemetryStore] = {}
+_store_cache: dict[str, TelemetryStore] = {}
 
 
 def get_telemetry_store(settings: Settings | None = None) -> TelemetryStore:
-    """Return the process-scoped persistent SQLite telemetry store."""
+    """Return the process-scoped telemetry store (SQLite or PostgreSQL)."""
     if settings is None:
         from ..config import get_settings
         settings = get_settings()
+
+    # Use PostgreSQL if DATABASE_URL is a PostgreSQL connection string
+    if settings.use_postgres:
+        db_url = settings.database_url
+        if db_url not in _store_cache:
+            store = PostgresTelemetryStore(database_url=db_url)
+            _store_cache[db_url] = store
+        return _store_cache[db_url]
+
+    # Default to SQLite
     db_path = settings.sqlite_db_path
     if db_path not in _store_cache:
         store = SqliteTelemetryStore(db_path=db_path)

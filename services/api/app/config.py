@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite:///hydrowise.db",
         alias="DATABASE_URL",
-        description="Connection URL or file path for SQLite database.",
+        description="Connection URL for database (SQLite or PostgreSQL).",
     )
 
     @property
@@ -124,6 +124,11 @@ class Settings(BaseSettings):
         if url.startswith("sqlite://"):
             return url[len("sqlite://") :]
         return url
+
+    @property
+    def use_postgres(self) -> bool:
+        """True when DATABASE_URL is a PostgreSQL connection string."""
+        return self.database_url and self.database_url.startswith("postgresql://")
 
     # ------------------------------------------------------------------ #
     # API service                                                          #

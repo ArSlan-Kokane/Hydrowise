@@ -35,17 +35,26 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     store = get_telemetry_store(settings)
     if hasattr(store, "init_db"):
-        store.init_db()
+        if settings.use_postgres:
+            # PostgreSQL has async init_db
+            await store.init_db()
+        else:
+            # SQLite has sync init_db
+            store.init_db()
 
     logger.info(
         "HydroWise API starting — env=%s  db=%s  weather=%s  ml=%s",
         settings.hydrowise_env,
-        settings.sqlite_db_path,
+        "postgresql" if settings.use_postgres else settings.sqlite_db_path,
         "mock" if settings.use_mock_weather else f"live ({settings.weather_api_base_url})",
         "mock" if settings.use_mock_ml else f"sklearn ({settings.model_artifact_path})",
     )
     yield
     logger.info("HydroWise API shutting down")
+
+    # Close PostgreSQL connection pool if applicable
+    if hasattr(store, "close"):
+        await store.close()
 
 
 def create_app() -> FastAPI:

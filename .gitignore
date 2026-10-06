@@ -27,6 +27,7 @@ ml/models/*
 
 # PlatformIO
 firmware/esp32/.pio/
+firmware/esp32/include/config.h
 
 # Databases
 *.db
