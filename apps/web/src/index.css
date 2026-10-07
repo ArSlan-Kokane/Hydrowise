@@ -190,15 +190,23 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 /* Keep navigation out of the reading path until the user asks for it. */
 .sidebar.dashboard-hidden {
-  transform: translate3d(calc(-100% + 10px), 0, 0);
-  opacity: 0;
+  transform: translate3d(calc(-100% + 40px), 0, 0);
+  opacity: 0.15;
+  filter: blur(1px);
   box-shadow: none;
   pointer-events: none;
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 400ms cubic-bezier(0.16, 1, 0.3, 1),
+              filter 400ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .sidebar.dashboard-visible {
   transform: translate3d(0, 0, 0);
   opacity: 1;
+  filter: blur(0);
   box-shadow: 8px 0 28px rgba(16, 43, 33, 0.08);
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+              filter 500ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .side-brand {

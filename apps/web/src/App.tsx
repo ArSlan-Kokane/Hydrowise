@@ -141,6 +141,7 @@ export function App() {
       }
     }
 
+<<<<<<< Updated upstream
     fetchLiveWeather();
     const interval = window.setInterval(fetchLiveWeather, 30000);
     return () => window.clearInterval(interval);
