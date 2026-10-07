@@ -411,276 +411,393 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 /* ==========================================================================
-   Irrigation Decision Station
+   Irrigation Decision Panel
    ========================================================================== */
 
-.irrigation-station {
-  margin-bottom: 20px;
+.irrigation-decision-panel {
+  margin-top: 24px;
 }
 
-.decision-hero-card {
-  background: linear-gradient(135deg, #0D2636 0%, #133145 100%);
-  border: 1px solid var(--border-dark-subtle);
-  border-radius: 14px;
-  padding: 24px 28px;
-  color: #FFFFFF;
-  box-shadow: 0 4px 20px rgba(13, 38, 54, 0.3);
-}
-
-.decision-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.decision-icon {
-  width: 48px;
-  height: 48px;
+.decision-panel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: rgba(34, 163, 102, 0.2);
-  color: #2DE080;
-}
-
-.decision-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.decision-title-group {
-  flex: 1;
-}
-
-.decision-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: #8CAABF;
-  text-transform: uppercase;
-  display: block;
-  margin-bottom: 6px;
-}
-
-.decision-status {
-  font-family: var(--font-serif);
-  font-size: 22px;
-  font-weight: 700;
-  color: #FFFFFF;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.decision-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.ml-badge {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  background: rgba(50, 213, 215, 0.2);
-  color: #32D5D7;
-  padding: 4px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
-}
-
-.safety-badge {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
-}
-
-.safety-badge.rec-only {
-  background: rgba(224, 146, 40, 0.2);
-  color: #EFA636;
-}
-
-.safety-badge.auto {
-  background: rgba(34, 163, 102, 0.2);
-  color: #2DE080;
-}
-
-/* Sensor Gauges */
-.sensor-gauges-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.sensor-gauge {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   transition: all 200ms ease;
 }
 
-.sensor-gauge:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+.decision-panel-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
-.gauge-icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  color: #32D5D7;
+.decision-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.gauge-icon svg {
-  width: 18px;
-  height: 18px;
+.decision-label-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.gauge-value {
+.decision-section-number {
   font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-bright);
+  letter-spacing: 0.1em;
+}
+
+.decision-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.decision-subtitle {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.decision-heading {
+  font-family: var(--font-serif);
   font-size: 24px;
   font-weight: 700;
-  color: #FFFFFF;
-  line-height: 1;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.1;
 }
 
-.gauge-label {
-  font-size: 11px;
-  color: #8CAABF;
-  text-align: center;
+.decision-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 200ms ease;
+}
+
+.decision-status-badge.go {
+  background: var(--green-dim);
+  color: var(--green-primary);
+  border: 1px solid var(--green-bright);
+}
+
+.decision-status-badge.wait {
+  background: var(--amber-dim);
+  color: var(--amber-primary);
+  border: 1px solid var(--amber-primary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Decision Visual */
+.decision-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 24px;
+  padding: 32px;
+  background: var(--bg-card-subtle);
+  border-radius: 10px;
+}
+
+.decision-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.decision-circle.green {
+  background: var(--green-dim);
+  color: var(--green-primary);
+  box-shadow: 0 4px 16px rgba(34, 163, 102, 0.3);
+}
+
+.decision-circle.amber {
+  background: var(--amber-dim);
+  color: var(--amber-primary);
+  box-shadow: 0 4px 16px rgba(224, 146, 40, 0.3);
+}
+
+.decision-circle svg {
+  width: 36px;
+  height: 36px;
+}
+
+.decision-confidence {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
 }
 
-.moisture-pill {
+.confidence-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.confidence-value {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Sensor Readings Grid */
+.sensor-readings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.sensor-card {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 200ms ease;
+  position: relative;
+}
+
+.sensor-card:hover {
+  border-color: var(--border-default);
+  background: #FFFFFF;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.sensor-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.sensor-icon.temp {
+  background: #FDEED8;
+  color: #C57B18;
+}
+
+.sensor-icon.humidity {
+  background: #D9EFE2;
+  color: #1E8E50;
+}
+
+.sensor-icon.soil {
+  background: #E8F4FA;
+  color: #1A8CB8;
+}
+
+.sensor-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sensor-data {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sensor-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.sensor-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.moisture-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   font-family: var(--font-mono);
   font-size: 8px;
   font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.moisture-indicator.low {
+  background: #FCECEE;
+  color: #D14343;
+}
+
+.moisture-indicator.moderate {
+  background: #FEF5E7;
+  color: #C57B18;
+}
+
+.moisture-indicator.good {
+  background: #E7F6ED;
+  color: #1E8E50;
+}
+
+/* Decision Pipeline */
+.decision-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-card-subtle);
+  border-radius: 8px;
+}
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  flex: 1;
+}
+
+.step-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--border-subtle);
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step-name {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.step-result {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.pipeline-step.complete .step-number {
+  background: var(--green-bright);
+  color: #FFFFFF;
+}
+
+.pipeline-step.complete .step-result {
+  color: var(--green-primary);
+}
+
+.pipeline-step.pending .step-number {
+  background: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.pipeline-step.pending .step-result {
+  color: var(--amber-primary);
+}
+
+.pipeline-divider {
+  width: 24px;
+  height: 1px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+/* Panel Footer */
+.decision-panel-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ml-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ml-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+.safety-status {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--amber-primary);
+  background: var(--amber-dim);
   padding: 2px 6px;
   border-radius: 3px;
   letter-spacing: 0.05em;
 }
 
-.moisture-pill.low {
-  background: rgba(214, 69, 69, 0.2);
-  color: #D64545;
-}
-
-.moisture-pill.moderate {
-  background: rgba(224, 146, 40, 0.2);
-  color: #EFA636;
-}
-
-.moisture-pill.good {
-  background: rgba(34, 163, 102, 0.2);
-  color: #2DE080;
-}
-
-/* Pipeline Flow */
-.pipeline-flow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  overflow-x: auto;
-}
-
-.flow-step {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.flow-step.passed {
-  background: rgba(34, 163, 102, 0.15);
-  border: 1px solid rgba(34, 163, 102, 0.3);
-}
-
-.flow-step.irrigate {
-  background: rgba(34, 163, 102, 0.25);
-  border: 1px solid rgba(34, 163, 102, 0.5);
-}
-
-.flow-step.no-irrigate {
-  background: rgba(214, 69, 69, 0.25);
-  border: 1px solid rgba(214, 69, 69, 0.5);
-}
-
-.step-icon {
-  font-size: 14px;
-}
-
-.step-label {
-  font-weight: 600;
-  color: #E2ECE5;
-}
-
-.step-status {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: #2DE080;
-}
-
-.flow-step.no-irrigate .step-status {
-  color: #D64545;
-}
-
-.flow-arrow {
-  color: #5C7569;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-/* Decision Actions */
-.decision-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .refresh-decision-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(34, 163, 102, 0.2);
-  border: 1px solid rgba(34, 163, 102, 0.4);
-  color: #2DE080;
-  border-radius: 7px;
-  padding: 10px 16px;
-  font-size: 12px;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
   font-weight: 600;
   transition: all 200ms ease;
 }
 
 .refresh-decision-btn:hover:not(:disabled) {
-  background: rgba(34, 163, 102, 0.3);
-  border-color: rgba(34, 163, 102, 0.6);
+  border-color: var(--border-strong);
+  background: var(--bg-card-subtle);
 }
 
 .refresh-decision-btn:disabled {
@@ -689,14 +806,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .refresh-decision-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.last-update {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: #5C7569;
+  width: 12px;
+  height: 12px;
 }
 
 /* ==========================================================================
@@ -2663,33 +2774,36 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  /* Irrigation Station Mobile */
-  .decision-hero-card {
-    padding: 20px;
+  /* Irrigation Decision Panel Mobile */
+  .decision-panel-card {
+    padding: 16px;
   }
-  .decision-header {
+  .decision-panel-header {
     flex-direction: column;
+    align-items: flex-start;
     gap: 12px;
   }
-  .decision-meta {
-    align-items: flex-start;
+  .decision-visual {
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
   }
-  .sensor-gauges-row {
+  .sensor-readings-grid {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  .pipeline-flow {
+  .decision-pipeline {
     flex-direction: column;
-    align-items: flex-start;
     gap: 8px;
   }
-  .flow-arrow {
-    transform: rotate(90deg);
-    align-self: center;
+  .pipeline-divider {
+    width: 1px;
+    height: 16px;
   }
-  .decision-actions {
+  .decision-panel-footer {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
 }
 

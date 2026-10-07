@@ -456,9 +456,6 @@ export function App() {
               onShareView={shareView}
             />
 
-            {/* Automated Irrigation Decision Station */}
-            <IrrigationDecisionStation />
-
             {/* 4 Instrument KPI Cards */}
             <KpiRow current={current} weather={liveWeather} />
 
@@ -566,6 +563,9 @@ export function App() {
                 }
               />
             </div>
+
+            {/* Automated Irrigation Decision Station */}
+            <IrrigationDecisionStation />
           </section>
 
           {/* SECTION 03: FIELD CONDITIONS */}

@@ -101,116 +101,122 @@ export function IrrigationDecisionStation() {
   const moistureStatus = sensors.soilMoisture < 40 ? "Low" : sensors.soilMoisture < 60 ? "Moderate" : "Good";
 
   return (
-    <section className="irrigation-station" aria-label="Automated Irrigation Decision Station">
-      {/* Main Decision Hero Card */}
-      <div className="decision-hero-card">
-        <div className="decision-header">
-          <div className="decision-icon">
-            {isIrrigate ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
-            )}
+    <section className="irrigation-decision-panel" aria-label="Automated Irrigation Decision">
+      <div className="decision-panel-card">
+        {/* Header with decision status */}
+        <div className="decision-panel-header">
+          <div className="decision-label-group">
+            <span className="decision-section-number">06</span>
+            <div className="decision-title-block">
+              <span className="decision-subtitle">AUTOMATED DECISION</span>
+              <h3 className="decision-heading">
+                {isIrrigate ? "IRRIGATE" : "DO NOT IRRIGATE"}
+              </h3>
+            </div>
           </div>
-          <div className="decision-title-group">
-            <span className="decision-label">AUTOMATED IRRIGATION DECISION</span>
-            <h3 className="decision-status">
-              {isIrrigate ? "🟢 RECOMMENDATION: IRRIGATE" : "🔴 RECOMMENDATION: DO NOT IRRIGATE"}
-            </h3>
-          </div>
-          <div className="decision-meta">
-            <span className="ml-badge">{decision?.ml_version || "AMHOE-v1.0"}</span>
-            <span className={`safety-badge ${decision?.safety_status === "AUTOMATED" ? "auto" : "rec-only"}`}>
-              {decision?.safety_status || "RECOMMENDATION_ONLY"}
-            </span>
+          <div className={`decision-status-badge ${isIrrigate ? "go" : "wait"}`}>
+            <span className="status-dot" />
+            <span>{isIrrigate ? "Approved" : "Wait"}</span>
           </div>
         </div>
 
-        {/* Live Sensor Gauges */}
-        <div className="sensor-gauges-row">
-          <div className="sensor-gauge">
-            <div className="gauge-icon">
+        {/* Main decision visual */}
+        <div className="decision-visual">
+          <div className={`decision-circle ${isIrrigate ? "green" : "amber"}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {isIrrigate ? (
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+              ) : (
+                <>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="16" />
+                  <line x1="8" y1="12" x2="16" y2="12" />
+                </>
+              )}
+            </svg>
+          </div>
+          <div className="decision-confidence">
+            <span className="confidence-label">Confidence</span>
+            <span className="confidence-value">{decision?.confidence || 89}%</span>
+          </div>
+        </div>
+
+        {/* Sensor readings */}
+        <div className="sensor-readings-grid">
+          <div className="sensor-card">
+            <div className="sensor-icon temp">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
               </svg>
             </div>
-            <div className="gauge-value">{sensors.temperature.toFixed(1)}°C</div>
-            <div className="gauge-label">Temperature</div>
+            <div className="sensor-data">
+              <span className="sensor-value">{sensors.temperature.toFixed(1)}°C</span>
+              <span className="sensor-label">Temperature</span>
+            </div>
           </div>
 
-          <div className="sensor-gauge">
-            <div className="gauge-icon">
+          <div className="sensor-card">
+            <div className="sensor-icon humidity">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
               </svg>
             </div>
-            <div className="gauge-value">{sensors.humidity.toFixed(1)}%</div>
-            <div className="gauge-label">Humidity</div>
+            <div className="sensor-data">
+              <span className="sensor-value">{sensors.humidity.toFixed(1)}%</span>
+              <span className="sensor-label">Humidity</span>
+            </div>
           </div>
 
-          <div className="sensor-gauge">
-            <div className="gauge-icon">
+          <div className="sensor-card">
+            <div className="sensor-icon soil">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 3v18h18" />
                 <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
               </svg>
             </div>
-            <div className="gauge-value">{sensors.soilMoisture.toFixed(1)}%</div>
-            <div className="gauge-label">
-              Soil Moisture
-              <span className={`moisture-pill ${moistureStatus.toLowerCase()}`}>{moistureStatus}</span>
+            <div className="sensor-data">
+              <span className="sensor-value">{sensors.soilMoisture.toFixed(1)}%</span>
+              <span className="sensor-label">Soil Moisture</span>
             </div>
+            <span className={`moisture-indicator ${moistureStatus.toLowerCase()}`}>{moistureStatus}</span>
           </div>
         </div>
 
-        {/* Pipeline Flowcrumbs */}
-        <div className="pipeline-flow">
-          <div className="flow-step passed">
-            <span className="step-icon">⚡</span>
-            <span className="step-label">Weather Gate</span>
-            <span className="step-status">PASSED</span>
+        {/* Decision pipeline */}
+        <div className="decision-pipeline">
+          <div className="pipeline-step complete">
+            <span className="step-number">1</span>
+            <span className="step-name">Weather Gate</span>
+            <span className="step-result">Passed</span>
           </div>
-          <span className="flow-arrow">→</span>
-          <div className="flow-step passed">
-            <span className="step-icon">📡</span>
-            <span className="step-label">ESP32 Telemetry</span>
-            <span className="step-status">FRESH</span>
+          <div className="pipeline-divider" />
+          <div className="pipeline-step complete">
+            <span className="step-number">2</span>
+            <span className="step-name">Telemetry</span>
+            <span className="step-result">Fresh</span>
           </div>
-          <span className="flow-arrow">→</span>
-          <div className={`flow-step ${isIrrigate ? "irrigate" : "no-irrigate"}`}>
-            <span className="step-icon">🤖</span>
-            <span className="step-label">AMHOE ML</span>
-            <span className="step-status">
-              {isIrrigate ? "IRRIGATE" : "NO IRRIGATE"} ({decision?.confidence || 89}%)
-            </span>
-          </div>
-          <span className="flow-arrow">→</span>
-          <div className="flow-step passed">
-            <span className="step-icon">🛡️</span>
-            <span className="step-label">Safety</span>
-            <span className="step-status">{decision?.safety_status || "RECOMMENDATION_ONLY"}</span>
+          <div className="pipeline-divider" />
+          <div className={`pipeline-step ${isIrrigate ? "complete" : "pending"}`}>
+            <span className="step-number">3</span>
+            <span className="step-name">ML Decision</span>
+            <span className="step-result">{isIrrigate ? "Irrigate" : "Hold"}</span>
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="decision-actions">
+        {/* Footer with refresh */}
+        <div className="decision-panel-footer">
+          <div className="ml-info">
+            <span className="ml-label">AMHOE-v1.0</span>
+            <span className="safety-status">RECOMMENDATION_ONLY</span>
+          </div>
           <button
             className="refresh-decision-btn"
             onClick={fetchDecision}
             disabled={isEvaluating}
           >
             <Icon name={isEvaluating ? "activity" : "refresh"} />
-            <span>{isEvaluating ? "Evaluating..." : "Refresh Decision"}</span>
+            <span>{isEvaluating ? "Evaluating..." : "Refresh"}</span>
           </button>
-          {lastUpdate && (
-            <span className="last-update">Last updated: {lastUpdate}</span>
-          )}
         </div>
       </div>
     </section>
