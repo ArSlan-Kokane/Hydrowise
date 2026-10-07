@@ -39,25 +39,37 @@ class Settings(BaseSettings):
         description="Controls which adapter implementations are wired in.",
     )
 
-    # ------------------------------------------------------------------ #
-    # Weather provider                                                     #
-    # ------------------------------------------------------------------ #
+    weather_provider: Literal["open-meteo", "mock", "custom"] = Field(
+        default="open-meteo",
+        alias="WEATHER_PROVIDER",
+        description="Provider for weather forecasting ('open-meteo', 'mock', or 'custom').",
+    )
+    weather_latitude: float = Field(
+        default=18.5204,
+        alias="WEATHER_LATITUDE",
+        description="Latitude for weather forecast (default: 18.5204 Pune, Maharashtra).",
+    )
+    weather_longitude: float = Field(
+        default=73.8567,
+        alias="WEATHER_LONGITUDE",
+        description="Longitude for weather forecast (default: 73.8567 Pune, Maharashtra).",
+    )
     weather_api_base_url: str = Field(
-        default="",
+        default="https://api.open-meteo.com/v1/forecast",
         description=(
-            "Base URL for the live weather provider.  "
+            "Base URL for the live weather provider. "
             "Empty string → mock adapter is used."
         ),
     )
     weather_api_key: str = Field(
         default="",
-        description="API key for the weather provider.  Keep out of source control.",
+        description="API key for the weather provider (not required for Open-Meteo).",
     )
     # Fixed decision gate threshold (architecture constraint, not configurable)
     weather_gate_threshold_percent: float = Field(
         default=30.0,
         description=(
-            "Rain-probability threshold (%).  If forecast ≥ this value the "
+            "Rain-probability threshold (%). If forecast ≥ this value the "
             "system returns DO_NOT_IRRIGATE without invoking ML."
         ),
     )
@@ -96,9 +108,10 @@ class Settings(BaseSettings):
     # ML model artifact                                                    #
     # ------------------------------------------------------------------ #
     model_artifact_path: str = Field(
-        default="",
+        default="ml/models/model_blueprint.json",
+        alias="MODEL_ARTIFACT_PATH",
         description=(
-            "Filesystem path to the trained model artifact (e.g. .pkl / .joblib).  "
+            "Filesystem path to the trained model artifact (e.g. .json blueprint / .pkl).  "
             "Empty → mock ML adapter is used."
         ),
     )
@@ -156,8 +169,12 @@ class Settings(BaseSettings):
 
     @property
     def use_mock_weather(self) -> bool:
-        """True when no live weather provider is configured."""
-        return not self.weather_api_base_url or not self.weather_api_key
+        """True when mock weather adapter is configured."""
+        if self.weather_provider.lower() == "mock":
+            return True
+        if self.weather_provider.lower() == "open-meteo":
+            return False
+        return not self.weather_api_base_url
 
     @property
     def use_mock_ml(self) -> bool:

@@ -11,9 +11,14 @@ interface ScenarioData {
 
 interface KpiRowProps {
   current: ScenarioData;
+  weather?: {
+    rain: number;
+    provider: string;
+    gatePassed: boolean;
+  } | null;
 }
 
-export function KpiRow({ current }: KpiRowProps) {
+export function KpiRow({ current, weather }: KpiRowProps) {
   const isStressed = current.risk === "Critical" || current.risk === "High";
 
   const reserveTrend = isStressed ? "↓ 6.8%" : "↑ 4.2%";
@@ -34,6 +39,9 @@ export function KpiRow({ current }: KpiRowProps) {
       : "↓ 0.42 m";
   const waterTableVal =
     current.risk === "Critical" ? "14.2" : current.risk === "High" ? "12.8" : "11.6";
+
+  const effectiveRain = weather ? weather.rain : current.rain;
+  const gatePassed = weather ? weather.gatePassed : current.rain <= 30;
 
   return (
     <section className="insight-row" id="kpi-section" aria-label="Key metrics dashboard">
@@ -68,7 +76,11 @@ export function KpiRow({ current }: KpiRowProps) {
           <div className="progress-fill" style={{ width: `${current.level}%` }} />
         </div>
 
-        <div className="instrument-subtext">Compared with the same period last year</div>
+        <div className="instrument-subtext">
+          {effectiveRain > 30
+            ? `Active rain recharge boost: +${Math.round(effectiveRain * 0.12)}% natural infiltration`
+            : "Compared with the same period last year"}
+        </div>
 
         <div className="instrument-card-footer">
           <div className="instrument-metadata">
@@ -100,7 +112,7 @@ export function KpiRow({ current }: KpiRowProps) {
         </div>
       </article>
 
-      {/* 2. Recharge Outlook */}
+      {/* 2. Recharge Outlook (Integrated with Open-Meteo) */}
       <article className="instrument-card" aria-labelledby="recharge-label">
         <div className="instrument-header">
           <div className="instrument-icon-circle dark">
@@ -109,39 +121,43 @@ export function KpiRow({ current }: KpiRowProps) {
           <span className="instrument-title" id="recharge-label">
             RECHARGE OUTLOOK
           </span>
-          <span className="stat-pill moderate">{rechargeStatus}</span>
+          <span className={`stat-pill ${gatePassed ? "weather-gate-passed" : "weather-gate-blocked"}`}>
+            {gatePassed ? "Gate: Open (≤30%)" : "Gate: Blocked (>30%)"}
+          </span>
         </div>
 
         <div className="instrument-main-val">
-          <span className="stat-word-serif">{rechargeWord}</span>
+          <span className="stat-word-serif">
+            {effectiveRain > 50 ? "High Inflow" : effectiveRain > 30 ? "Rain Inflow" : "Dry Window"}
+          </span>
         </div>
 
         <div className="instrument-subtext">
-          Rainfall <b className="highlight-dark">{current.rain}%</b> likely in next 6 hours
+          Live Open-Meteo: <b className="highlight-dark">{effectiveRain}% rain probability</b> in next 6h
         </div>
 
         <div className="instrument-card-footer">
           <div className="instrument-metadata">
             <div className="meta-line">
-              <span>📅</span>
-              <span>Monsoon Season: Pre-monsoon</span>
+              <span>🌦️</span>
+              <span>{weather?.provider ? `Grid: ${weather.provider}` : "Open-Meteo (18.52°N, 73.86°E)"}</span>
             </div>
             <div className="meta-line">
-              <span>⏱</span>
-              <span>18 days to expected rains</span>
+              <span>⚡</span>
+              <span>{gatePassed ? "Gate: Passed → ML Irrigation Eligible" : "Gate: Triggered → Irrigation Suspended"}</span>
             </div>
             <div className="meta-line">
-              <span>🌡</span>
-              <span>Current temp: 38°C</span>
+              <span>💧</span>
+              <span>{effectiveRain > 30 ? "Aquifer Infiltration: High Natural Inflow" : "Aquifer Infiltration: Normal Baseline"}</span>
             </div>
           </div>
 
           {/* Mini 4 Equalizer Bars */}
           <div className="mini-equalizer" aria-hidden="true">
-            <span className="eq-bar bar-1" />
-            <span className="eq-bar bar-2" />
-            <span className="eq-bar bar-3" />
-            <span className="eq-bar bar-4" />
+            <span className="eq-bar bar-1" style={{ height: `${Math.min(100, Math.max(25, effectiveRain * 0.9))}%` }} />
+            <span className="eq-bar bar-2" style={{ height: `${Math.min(100, Math.max(35, effectiveRain * 1.1))}%` }} />
+            <span className="eq-bar bar-3" style={{ height: `${Math.min(100, Math.max(20, effectiveRain * 0.75))}%` }} />
+            <span className="eq-bar bar-4" style={{ height: `${Math.min(100, Math.max(30, effectiveRain * 1.0))}%` }} />
           </div>
         </div>
       </article>

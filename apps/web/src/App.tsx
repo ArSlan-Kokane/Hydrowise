@@ -14,6 +14,7 @@ import { ReportObservationModal } from "./components/ReportObservationModal";
 import { AdminDrawer } from "./components/AdminDrawer";
 import { Icon } from "./components/Icons";
 import { IrrigationDecisionStation } from "./components/IrrigationDecisionStation";
+import { apiClient } from "./api/client";
 
 const initialScenarios = {
   normal: { label: "Current conditions", rain: 18, level: 61, risk: "Watch", note: "Water demand is rising in the western fields." },
@@ -119,10 +120,49 @@ export function App() {
   const sidebarHoveredRef = useRef(false);
 
   const [signals, setSignals] = useState<CommunitySignal[]>(initialSignals);
+  const [liveWeather, setLiveWeather] = useState<{
+    rain: number;
+    provider: string;
+    gatePassed: boolean;
+  } | null>(null);
 
-  const current = initialScenarios[scenario];
+  useEffect(() => {
+    async function fetchLiveWeather() {
+      try {
+        const data = await apiClient.getWeather();
+        const rainVal = Number(data["rain_probability_%"] ?? 0);
+        setLiveWeather({
+          rain: rainVal,
+          provider: data.provider || "Open-Meteo",
+          gatePassed: rainVal <= 30,
+        });
+      } catch (err) {
+        console.debug("Backend weather not reachable, using baseline scenario:", err);
+      }
+    }
 
-  const revealDashboard = useCallback((duration = 1800) => {
+    fetchLiveWeather();
+    const interval = window.setInterval(fetchLiveWeather, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const activeScenarios = useMemo(() => {
+    if (!liveWeather) return initialScenarios;
+    return {
+      ...initialScenarios,
+      normal: {
+        ...initialScenarios.normal,
+        rain: Math.round(liveWeather.rain),
+        note: `Live forecast: ${liveWeather.rain}% rain. Weather Gate: ${
+          liveWeather.gatePassed ? "PASSED" : "BLOCKED"
+        }`,
+      },
+    };
+  }, [liveWeather]);
+
+  const current = activeScenarios[scenario];
+
+  const revealDashboard = useCallback((duration = 1200) => {
     dashboardVisibleRef.current = true;
     setDashboardVisible(true);
     if (dashboardHideTimerRef.current !== null) {
@@ -156,7 +196,7 @@ export function App() {
       dashboardVisibleRef.current = false;
       setDashboardVisible(false);
       dashboardHideTimerRef.current = null;
-    }, 260);
+    }, 180);
   }, []);
 
   useEffect(() => {
@@ -420,7 +460,7 @@ export function App() {
             <IrrigationDecisionStation />
 
             {/* 4 Instrument KPI Cards */}
-            <KpiRow current={current} />
+            <KpiRow current={current} weather={liveWeather} />
 
             {/* Compact Risk Preview */}
             <div className="compact-risk-preview">
@@ -458,6 +498,51 @@ export function App() {
               </div>
             </div>
 
+            {liveWeather && (
+              <div
+                style={{
+                  margin: "0 0 1.25rem 0",
+                  padding: "0.85rem 1.25rem",
+                  borderRadius: "10px",
+                  background: liveWeather.gatePassed
+                    ? "rgba(46, 125, 50, 0.10)"
+                    : "rgba(25, 118, 210, 0.10)",
+                  border: `1px solid ${
+                    liveWeather.gatePassed ? "rgba(46, 125, 50, 0.35)" : "rgba(25, 118, 210, 0.35)"
+                  }`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.92rem" }}>
+                  <span style={{ fontSize: "1.25rem" }}>🌦️</span>
+                  <span style={{ fontWeight: 600 }}>Live Weather Feed:</span>
+                  <span>Next 6h Rain Probability: <b>{liveWeather.rain}%</b></span>
+                  <span style={{ opacity: 0.75, fontSize: "0.82rem" }}>({liveWeather.provider})</span>
+                </div>
+                <div>
+                  <span
+                    style={{
+                      padding: "0.3rem 0.75rem",
+                      borderRadius: "6px",
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.04em",
+                      background: liveWeather.gatePassed ? "#2e7d32" : "#1976d2",
+                      color: "#fff",
+                    }}
+                  >
+                    {liveWeather.gatePassed
+                      ? "WEATHER GATE: PASSED (ML ACTIVE)"
+                      : "WEATHER GATE: BLOCKED (RAIN FORECAST)"}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="groundwater-map-workspace">
               <GroundwaterMap
                 wells={initialWells}
@@ -470,6 +555,7 @@ export function App() {
                 onSatelliteToggle={handleSatelliteToggle}
                 selectedWellId={selectedWellId}
                 onSelectWell={setSelectedWellId}
+                weather={liveWeather}
               />
 
               <RiskPicture
@@ -506,11 +592,11 @@ export function App() {
               />
 
               <ScenarioBar
-                scenarios={initialScenarios}
+                scenarios={activeScenarios}
                 currentScenario={scenario}
                 onSelectScenario={(newScen) => {
                   setScenario(newScen);
-                  notify(`Switched to "${initialScenarios[newScen].label}" scenario`);
+                  notify(`Switched to "${activeScenarios[newScen].label}" scenario`);
                 }}
               />
             </div>

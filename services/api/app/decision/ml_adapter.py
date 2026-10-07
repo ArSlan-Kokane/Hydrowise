@@ -141,11 +141,32 @@ class ProprietaryMLAdapter:
 
     def __init__(self, settings: Settings) -> None:
         import os
-        from ml.src.inference_engine import ProprietaryInferenceEngine
+        import sys
+        import importlib
+        import importlib.util
+
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+        if repo_root not in sys.path:
+            sys.path.insert(0, repo_root)
+
+        # Dynamic loading prevents static LSP / Pyrefly missing-import diagnostics
+        # when the language server infers services/api as the import root
+        engine_file = os.path.join(repo_root, "ml", "src", "inference_engine.py")
+        if os.path.exists(engine_file):
+            spec = importlib.util.spec_from_file_location("inference_engine", engine_file)
+            if spec and spec.loader:
+                ml_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(ml_mod)
+                ProprietaryInferenceEngine = ml_mod.ProprietaryInferenceEngine
+            else:
+                ml_mod = importlib.import_module("ml.src.inference_engine")
+                ProprietaryInferenceEngine = ml_mod.ProprietaryInferenceEngine
+        else:
+            ml_mod = importlib.import_module("ml.src.inference_engine")
+            ProprietaryInferenceEngine = ml_mod.ProprietaryInferenceEngine
+
         artifact_path = settings.model_artifact_path
         if not os.path.isabs(artifact_path):
-            # Resolve relative to repo root if needed
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
             candidate = os.path.join(repo_root, artifact_path)
             if os.path.exists(candidate):
                 artifact_path = candidate
