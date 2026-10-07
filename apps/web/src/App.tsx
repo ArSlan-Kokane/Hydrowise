@@ -13,6 +13,7 @@ import { NotificationsModal } from "./components/NotificationsModal";
 import { ReportObservationModal } from "./components/ReportObservationModal";
 import { AdminDrawer } from "./components/AdminDrawer";
 import { Icon } from "./components/Icons";
+import { IrrigationDecisionStation } from "./components/IrrigationDecisionStation";
 
 const initialScenarios = {
   normal: { label: "Current conditions", rain: 18, level: 61, risk: "Watch", note: "Water demand is rising in the western fields." },
@@ -414,6 +415,9 @@ export function App() {
               onExportBrief={exportBrief}
               onShareView={shareView}
             />
+
+            {/* Automated Irrigation Decision Station */}
+            <IrrigationDecisionStation />
 
             {/* 4 Instrument KPI Cards */}
             <KpiRow current={current} />
