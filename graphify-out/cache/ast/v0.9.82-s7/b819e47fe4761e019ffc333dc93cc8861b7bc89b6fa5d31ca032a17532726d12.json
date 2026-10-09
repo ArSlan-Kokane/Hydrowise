@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_firmware_esp32_include_config_example_h", "label": "config.example.h", "file_type": "code", "source_file": "firmware/esp32/include/config.example.h", "source_location": "L1"}], "edges": [], "raw_calls": []}
