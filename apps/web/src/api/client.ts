@@ -1,14 +1,48 @@
 import type { DashboardState, IrrigationDecision, SensorReading, WeatherSnapshot } from "../types/contracts";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL;
+// When VITE_API_BASE_URL is specified (e.g. deployed cloud API), use it directly.
+// Otherwise use relative "" so Vite dev server proxies /api to backend, falling back to localhost:8000.
+const PRIMARY_BASE = RAW_API_BASE ? RAW_API_BASE.replace(/\/+$/, "") : "";
+const FALLBACK_BASE = "http://localhost:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!response.ok) throw new Error(`HydroWise API error: ${response.status}`);
-  return response.json() as Promise<T>;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  try {
+    const url = `${PRIMARY_BASE}${cleanPath}`;
+    const response = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...init,
+    });
+    if (response.ok) {
+      return (await response.json()) as T;
+    }
+    // If 404 on /api/v1/..., try fallback without /v1
+    if (response.status === 404 && cleanPath.startsWith("/api/v1/")) {
+      const altPath = cleanPath.replace("/api/v1/", "/api/");
+      const altRes = await fetch(`${PRIMARY_BASE}${altPath}`, {
+        headers: { "Content-Type": "application/json" },
+        ...init,
+      });
+      if (altRes.ok) return (await altRes.json()) as T;
+    }
+    throw new Error(`HydroWise API HTTP ${response.status}`);
+  } catch (err) {
+    // If primary base was relative and failed (e.g. vite proxy not reachable), try explicit fallback
+    if (PRIMARY_BASE !== FALLBACK_BASE) {
+      try {
+        const fallbackUrl = `${FALLBACK_BASE}${cleanPath}`;
+        const fbRes = await fetch(fallbackUrl, {
+          headers: { "Content-Type": "application/json" },
+          ...init,
+        });
+        if (fbRes.ok) return (await fbRes.json()) as T;
+      } catch {
+        // Keep original error
+      }
+    }
+    throw err;
+  }
 }
 
 export const apiClient = {

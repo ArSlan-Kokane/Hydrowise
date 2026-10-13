@@ -7,6 +7,12 @@ export interface SensorReading {
   temperature_C: number;
   "humidity_%": number;
   "soil_moisture_%": number;
+  soil_raw?: number;
+  soil_mv?: number;
+  rain?: number;
+  rain_raw?: number;
+  rain_detected?: boolean;
+  received_at?: string;
 }
 
 export interface WeatherSnapshot {

@@ -7,7 +7,7 @@
   "scripts": {
     "web:dev": "pnpm --dir apps/web dev",
     "web:build": "pnpm --dir apps/web build",
-    "api:dev": "uvicorn services.api.app.main:app --reload",
+    "api:dev": "uvicorn services.api.app.main:app --reload --host 0.0.0.0 --port 8000",
     "simulate": "python3 services/api/scripts/simulate_sensor.py",
     "keep-alive": "python3 scripts/keep-alive.py",
     "check": "pnpm --dir apps/web check",

@@ -35,12 +35,15 @@ DEVICE_ID = os.getenv("DEVICE_ID", "esp32-field-01")
 DEVICE_API_KEY = os.getenv("DEVICE_API_KEY", "hydrowise-esp32-key-dev")
 
 
-def generate_reading(device_id: str = DEVICE_ID) -> dict:
-    """Generate India-climate-realistic sensor telemetry."""
-    # Typical semi-arid / agricultural Indian conditions
+def generate_reading(device_id: str = DEVICE_ID, simulate_rain: bool = False) -> dict:
+    """Generate India-climate-realistic sensor telemetry matching ESP32 hardware."""
     temp = round(random.uniform(28.0, 39.5), 1)
     humidity = round(random.uniform(35.0, 70.0), 1)
     soil = round(random.uniform(18.0, 48.0), 1)
+    soil_raw = int(3200 - (soil / 100.0) * (3200 - 1400))
+    soil_mv = int(soil_raw * (3300 / 4095))
+    rain_state = 1 if simulate_rain else (1 if random.random() < 0.08 else 0)
+    rain_raw = 1450 if rain_state else 2100
 
     return {
         "device_id": device_id,
@@ -48,6 +51,10 @@ def generate_reading(device_id: str = DEVICE_ID) -> dict:
         "temperature_C": temp,
         "humidity_%": humidity,
         "soil_moisture_%": soil,
+        "soil_raw": soil_raw,
+        "soil_mv": soil_mv,
+        "rain": rain_state,
+        "rain_raw": rain_raw,
     }
 
 
@@ -80,6 +87,7 @@ def main():
     parser.add_argument("--url", type=str, default=API_BASE_URL, help=f"API Base URL (default: {API_BASE_URL})")
     parser.add_argument("--key", type=str, default=DEVICE_API_KEY, help="Device API Key")
     parser.add_argument("--device", type=str, default=DEVICE_ID, help=f"Device ID (default: {DEVICE_ID})")
+    parser.add_argument("--rain", action="store_true", help="Force rain sensor active (rain=1)")
     args = parser.parse_args()
 
     print("=" * 60)

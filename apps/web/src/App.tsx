@@ -14,6 +14,7 @@ import { AdminDrawer } from "./components/AdminDrawer";
 import { DistrictAdministration } from "./components/DistrictAdministration";
 import { IrrigationDecisionStation } from "./components/IrrigationDecisionStation";
 import { apiClient } from "./api/client";
+import type { SensorReading } from "./types/contracts";
 
 const INITIAL_SIGNALS: CommunitySignal[] = [
   {
@@ -90,6 +91,8 @@ export function App() {
   const [notice, setNotice] = useState("");
 
   const [signals, setSignals] = useState<CommunitySignal[]>(INITIAL_SIGNALS);
+  const [latestSensor, setLatestSensor] = useState<SensorReading | null>(null);
+  const [lastSensorSync, setLastSensorSync] = useState<string>("");
   const [liveWeather, setLiveWeather] = useState<{
     rain: number;
     provider: string;
@@ -117,11 +120,33 @@ export function App() {
     return () => window.clearInterval(interval);
   }, []);
 
-  // Compute real average soil moisture across stations
+  // Real-time sensor polling (every 5 seconds for responsive ESP32 telemetry updates)
+  useEffect(() => {
+    async function fetchSensors() {
+      try {
+        const data = await apiClient.getLatestSensors();
+        if (data) {
+          setLatestSensor(data);
+          setLastSensorSync(new Date().toLocaleTimeString());
+        }
+      } catch (err) {
+        console.debug("Sensor poll error:", err);
+      }
+    }
+
+    fetchSensors();
+    const interval = window.setInterval(fetchSensors, 5000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  // Compute real average soil moisture across stations, dynamically anchored by live telemetry
   const avgSoilMoisture = useMemo(() => {
+    if (latestSensor && typeof latestSensor["soil_moisture_%"] === "number") {
+      return Number(latestSensor["soil_moisture_%"].toFixed(1));
+    }
     const sum = INITIAL_STATIONS.reduce((acc, s) => acc + s.soil_moisture_pct, 0);
     return Number((sum / INITIAL_STATIONS.length).toFixed(1));
-  }, []);
+  }, [latestSensor]);
 
   // Compute live water security score (0-100) based on moisture & rain buffer
   const waterSecurityScore = useMemo(() => {
@@ -436,51 +461,75 @@ HydroWise Living Water Intelligence System · Read the landscape. Act before sca
               </div>
             </div>
 
-            {/* Weather Gate Status Banner */}
-            {liveWeather && (
-              <div
-                style={{
-                  margin: "0 0 1rem 0",
-                  padding: "0.75rem 1.15rem",
-                  borderRadius: "10px",
-                  background: liveWeather.gatePassed
-                    ? "rgba(46, 125, 50, 0.08)"
-                    : "rgba(25, 118, 210, 0.08)",
-                  border: `1px solid ${
-                    liveWeather.gatePassed ? "rgba(46, 125, 50, 0.3)" : "rgba(25, 118, 210, 0.3)"
-                  }`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "0.6rem",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.88rem" }}>
-                  <span style={{ fontSize: "1.2rem" }}>🌦️</span>
-                  <span style={{ fontWeight: 600 }}>Live Weather Feed:</span>
-                  <span>Next 6h Rain Probability: <b>{liveWeather.rain}%</b></span>
-                  <span style={{ opacity: 0.75, fontSize: "0.8rem" }}>({liveWeather.provider})</span>
-                </div>
-                <div>
-                  <span
-                    style={{
-                      padding: "0.25rem 0.65rem",
-                      borderRadius: "6px",
-                      fontWeight: 700,
-                      fontSize: "0.75rem",
-                      letterSpacing: "0.04em",
-                      background: liveWeather.gatePassed ? "#2e7d32" : "#1976d2",
-                      color: "#fff",
-                    }}
-                  >
-                    {liveWeather.gatePassed
-                      ? "WEATHER GATE: PASSED (ML IRRIGATION ACTIVE)"
-                      : "WEATHER GATE: BLOCKED (RAIN PRECIPITATION EXPECTED)"}
-                  </span>
-                </div>
+            {/* Weather Gate & Live ESP32 Telemetry Status Banner */}
+            <div
+              style={{
+                margin: "0 0 1rem 0",
+                padding: "0.85rem 1.15rem",
+                borderRadius: "10px",
+                background: latestSensor?.rain === 1
+                  ? "rgba(214, 69, 69, 0.08)"
+                  : liveWeather?.gatePassed
+                  ? "rgba(46, 125, 50, 0.08)"
+                  : "rgba(25, 118, 210, 0.08)",
+                border: `1px solid ${
+                  latestSensor?.rain === 1
+                    ? "rgba(214, 69, 69, 0.3)"
+                    : liveWeather?.gatePassed
+                    ? "rgba(46, 125, 50, 0.3)"
+                    : "rgba(25, 118, 210, 0.3)"
+                }`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "0.6rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.88rem", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "1.2rem" }}>🌦️</span>
+                <span style={{ fontWeight: 600 }}>Live Telemetry:</span>
+                <span>Rain Forecast: <b>{liveWeather?.rain ?? 18}%</b></span>
+                {latestSensor && (
+                  <>
+                    <span style={{ opacity: 0.4 }}>|</span>
+                    <span>Node: <code style={{ background: "rgba(0,0,0,0.06)", padding: "2px 6px", borderRadius: "4px" }}>{latestSensor.device_id}</code></span>
+                    <span>Soil: <b>{latestSensor["soil_moisture_%"].toFixed(1)}%</b></span>
+                    <span>Temp: <b>{latestSensor.temperature_C.toFixed(1)}°C</b></span>
+                    <span>Hum: <b>{latestSensor["humidity_%"].toFixed(1)}%</b></span>
+                    {latestSensor.rain === 1 && (
+                      <span style={{ color: "#d64545", fontWeight: 700 }}>🌧️ RAIN DETECTED (Plate Active)</span>
+                    )}
+                  </>
+                )}
               </div>
-            )}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span
+                  style={{
+                    padding: "0.25rem 0.65rem",
+                    borderRadius: "6px",
+                    fontWeight: 700,
+                    fontSize: "0.75rem",
+                    letterSpacing: "0.04em",
+                    background: latestSensor?.rain === 1
+                      ? "#d64545"
+                      : liveWeather?.gatePassed
+                      ? "#2e7d32"
+                      : "#1976d2",
+                    color: "#fff",
+                  }}
+                >
+                  {latestSensor?.rain === 1
+                    ? "RAIN SENSOR: TRIPPED (HOLD ACTION)"
+                    : liveWeather?.gatePassed
+                    ? "WEATHER GATE: PASSED (ML IRRIGATION ACTIVE)"
+                    : "WEATHER GATE: BLOCKED (RAIN PRECIPITATION EXPECTED)"}
+                </span>
+                <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>
+                  {lastSensorSync ? `Synced ${lastSensorSync}` : "Live Sync"}
+                </span>
+              </div>
+            </div>
 
             {/* Real-time Map & Companion Risk Picture */}
             <div className="groundwater-map-workspace">

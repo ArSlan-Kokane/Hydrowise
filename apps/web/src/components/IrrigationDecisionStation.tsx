@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { apiClient } from "../api/client";
-import type { WeatherSnapshot, IrrigationDecision } from "../types/contracts";
+import type { WeatherSnapshot, IrrigationDecision, SensorReading } from "../types/contracts";
 
 interface SensorData {
   temperature: number;
@@ -11,6 +11,7 @@ interface SensorData {
 
 export function IrrigationDecisionStation() {
   const [decision, setDecision] = useState<IrrigationDecision | null>(null);
+  const [rawSensor, setRawSensor] = useState<SensorReading | null>(null);
   const [sensors, setSensors] = useState<SensorData>({
     temperature: 31.8,
     humidity: 62.4,
@@ -38,6 +39,7 @@ export function IrrigationDecisionStation() {
 
       if (weatherData) setWeather(weatherData);
       if (sensorData) {
+        setRawSensor(sensorData);
         setSensors({
           temperature: sensorData.temperature_C,
           humidity: sensorData["humidity_%"],
@@ -97,7 +99,7 @@ export function IrrigationDecisionStation() {
     fetchDecision();
     const interval = setInterval(() => {
       if (!simulationMode) fetchDecision();
-    }, 30000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [simulationMode]);
 
@@ -114,7 +116,9 @@ export function IrrigationDecisionStation() {
     : 85;
 
   const reasoning = decision
-    ? decision.weather_gate.passed
+    ? rawSensor?.rain === 1
+      ? "Physical rain sensor triggered on field node (GPIO 35 active). Irrigation immediately suspended (DO_NOT_IRRIGATE) to prevent water logging."
+      : decision.weather_gate.passed
       ? `Weather gate passed (${decision.weather_gate["rain_probability_%"]}% rain ≤ 30% threshold). ML Model ${decision.ml_result?.model_version || "AMHOE"} evaluated soil moisture (${activeMoisture.toFixed(1)}%) → recommends ${decision.recommendation.toLowerCase().replace(/_/g, " ")}.`
       : `Weather gate blocked: 6-hour rain forecast (${decision.weather_gate["rain_probability_%"]}%) exceeds 30% cutoff. Natural precipitation expected.`
     : "Analyzing real-time sensor telemetry and weather gate...";
@@ -142,7 +146,9 @@ export function IrrigationDecisionStation() {
               </div>
             </div>
             <div className="decision-title-block">
-              <span className="decision-subtitle">AUTOMATED AMHOE DECISION ENGINE</span>
+              <span className="decision-subtitle">
+                AUTOMATED AMHOE DECISION ENGINE {rawSensor?.device_id ? `· LIVE NODE: ${rawSensor.device_id}` : ""}
+              </span>
               <h3 className="decision-heading" style={{ fontSize: "19px", margin: "2px 0 4px" }}>
                 {isIrrigate ? "RECOMMENDATION: IRRIGATE" : "RECOMMENDATION: HOLD ACTION"}
               </h3>
@@ -282,7 +288,7 @@ export function IrrigationDecisionStation() {
         </div>
 
         {/* Sensor readings with animated bars */}
-        <div className="sensor-readings-grid" style={{ marginBottom: "16px" }}>
+        <div className="sensor-readings-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px", marginBottom: "16px" }}>
           <div className="sensor-card">
             <div className="sensor-header">
               <div className="sensor-icon temp">
@@ -339,7 +345,49 @@ export function IrrigationDecisionStation() {
                 style={{ width: `${moisturePercent}%` }}
               />
             </div>
-            <span className="sensor-range">40% Threshold Trigger</span>
+            <span className="sensor-range">
+              {rawSensor?.soil_raw !== undefined
+                ? `Raw: ${rawSensor.soil_raw} ADC (${rawSensor.soil_mv ?? 0} mV)`
+                : "40% Threshold Trigger"}
+            </span>
+          </div>
+
+          <div className="sensor-card">
+            <div className="sensor-header">
+              <div className="sensor-icon" style={{ background: "rgba(25, 118, 210, 0.12)", color: "#1976d2" }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25" />
+                  <line x1="8" y1="19" x2="8" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                  <line x1="16" y1="19" x2="16" y2="21" />
+                </svg>
+              </div>
+              <span className="sensor-name">Rain Plate</span>
+              <span
+                className="moisture-badge"
+                style={{
+                  background: rawSensor?.rain === 1 ? "#d64545" : "#22a366",
+                  color: "#fff",
+                }}
+              >
+                {rawSensor?.rain === 1 ? "RAIN" : "DRY"}
+              </span>
+            </div>
+            <div className="sensor-value-large" style={{ fontSize: "1.25rem" }}>
+              {rawSensor?.rain === 1 ? "Active Rain" : "Dry Plate"}
+            </div>
+            <div className="sensor-bar">
+              <div
+                className="sensor-bar-fill"
+                style={{
+                  width: rawSensor?.rain === 1 ? "100%" : "0%",
+                  background: rawSensor?.rain === 1 ? "#d64545" : "#22a366",
+                }}
+              />
+            </div>
+            <span className="sensor-range">
+              {rawSensor?.rain_raw !== undefined ? `ADC: ${rawSensor.rain_raw} (Pin 35)` : "GPIO 35 Rain Plate"}
+            </span>
           </div>
         </div>
 

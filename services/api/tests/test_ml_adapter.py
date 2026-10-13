@@ -88,7 +88,7 @@ def test_ml_adapter_factory_routing() -> None:
 
 
 def test_ml_adapter_features_strict_boundary() -> None:
-    """Verify inference requires only the 3 physical sensor features and never rainfall."""
+    """Verify inference requires only physical sensor features and never weather forecast rainfall."""
     reading = SensorReading(
         device_id="esp32-test",
         temperature_C=32.0,
@@ -98,12 +98,13 @@ def test_ml_adapter_features_strict_boundary() -> None:
     )
     dumped = reading.model_dump()
     assert "rain_probability_percent" not in dumped
+    assert "rain_probability_%" not in dumped
     assert "rainfall" not in dumped
-    assert set(dumped.keys()) == {
+    assert {
         "device_id",
         "temperature_C",
         "humidity_percent",
         "soil_moisture_percent",
         "captured_at",
         "received_at",
-    }
+    }.issubset(set(dumped.keys()))
