@@ -61,12 +61,12 @@ export function ReportObservationModal({ isOpen, onClose, onSubmit }: ReportObse
               <div className="modal-field">
                 <label htmlFor="rep-village">Village Cluster</label>
                 <select id="rep-village" value={village} onChange={(e) => setVillage(e.target.value)}>
-                  <option value="Bhairavpur">Bhairavpur (Sector 1)</option>
-                  <option value="Khera">Khera (Sector 2)</option>
-                  <option value="South Ward">South Ward (Sector 3)</option>
-                  <option value="Chandpura">Chandpura (Sector 4)</option>
-                  <option value="Rampur">Rampur (Sector 5)</option>
-                  <option value="Sultanpur">Sultanpur (Sector 6)</option>
+                  <option value="Sangli Gaonthan">Sangli Gaonthan (Central)</option>
+                  <option value="Miraj Agro-Cluster">Miraj Agro-Cluster (North)</option>
+                  <option value="Vita Watershed">Vita Watershed (East)</option>
+                  <option value="Kundal Valley">Kundal Valley (South)</option>
+                  <option value="Jath Perimeter">Jath Perimeter (West)</option>
+                  <option value="Haripur Sangam">Haripur Sangam (River Confluence)</option>
                 </select>
               </div>
 

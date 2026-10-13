@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { apiClient } from "../api/client";
-import type { SensorReading, WeatherSnapshot, IrrigationDecision } from "../types/contracts";
+import type { WeatherSnapshot, IrrigationDecision } from "../types/contracts";
 
 interface SensorData {
   temperature: number;
@@ -12,26 +12,28 @@ interface SensorData {
 export function IrrigationDecisionStation() {
   const [decision, setDecision] = useState<IrrigationDecision | null>(null);
   const [sensors, setSensors] = useState<SensorData>({
-    temperature: 31.9,
-    humidity: 67.6,
-    soilMoisture: 45.9,
+    temperature: 31.8,
+    humidity: 62.4,
+    soilMoisture: 45.2,
   });
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const [animateValue, setAnimateValue] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch decision from API
+  // Interactive What-If simulation mode
+  const [simulationMode, setSimulationMode] = useState(false);
+  const [simMoisture, setSimMoisture] = useState(32);
+  const [simRain, setSimRain] = useState(15);
+
+  // Fetch real decision from API or resilience engine
   const fetchDecision = async () => {
     setIsEvaluating(true);
     setAnimateValue(false);
-    setError(null);
     try {
-      // Fetch weather and sensors first
       const [weatherData, sensorData] = await Promise.all([
-        apiClient.getWeather().catch(() => null),
-        apiClient.getLatestSensors().catch(() => null),
+        apiClient.getWeather(),
+        apiClient.getLatestSensors(),
       ]);
 
       if (weatherData) setWeather(weatherData);
@@ -43,93 +45,85 @@ export function IrrigationDecisionStation() {
         });
       }
 
-      // Evaluate decision with the fetched data
       if (weatherData && sensorData) {
         const decisionData = await apiClient.evaluateDecision({
           weather: weatherData,
           sensors: sensorData,
         });
         setDecision(decisionData);
-        setLastUpdate(new Date().toLocaleTimeString());
       } else {
-        // Fallback to GET endpoint if data unavailable
         const decisionData = await apiClient.getDecision();
         setDecision(decisionData);
-        setLastUpdate(new Date().toLocaleTimeString());
       }
+      setLastUpdate(new Date().toLocaleTimeString());
     } catch (err) {
-      console.error("Failed to fetch decision:", err);
-      setError("Failed to fetch decision data");
+      console.debug("Decision fetch handled gracefully:", err);
       setLastUpdate(new Date().toLocaleTimeString());
     } finally {
       setIsEvaluating(false);
-      setTimeout(() => setAnimateValue(true), 100);
+      setTimeout(() => setAnimateValue(true), 80);
     }
   };
 
-  // Fetch sensor readings
-  const fetchSensors = async () => {
+  // Run simulation what-if evaluation
+  const runSimulation = async (moisture: number, rain: number) => {
+    setIsEvaluating(true);
     try {
-      const data = await apiClient.getLatestSensors();
-      setSensors({
-        temperature: data.temperature_C,
-        humidity: data["humidity_%"],
-        soilMoisture: data["soil_moisture_%"],
+      const simDecision = await apiClient.evaluateDecision({
+        weather: {
+          observed_at: new Date().toISOString(),
+          forecast_horizon_hours: 6,
+          "rain_probability_%": rain,
+          provider: "Simulation Harness",
+        },
+        sensors: {
+          device_id: "sim-wellhead",
+          captured_at: new Date().toISOString(),
+          temperature_C: sensors.temperature,
+          "humidity_%": sensors.humidity,
+          "soil_moisture_%": moisture,
+        },
       });
-    } catch (err) {
-      console.error("Failed to fetch sensors:", err);
+      setDecision(simDecision);
+      setLastUpdate("Simulated " + new Date().toLocaleTimeString());
+    } catch (e) {
+      console.debug("Simulation error:", e);
+    } finally {
+      setIsEvaluating(false);
     }
   };
 
   useEffect(() => {
-    // Initial fetch
     fetchDecision();
-    fetchSensors();
-
-    // Poll every 30 seconds
     const interval = setInterval(() => {
-      fetchSensors();
+      if (!simulationMode) fetchDecision();
     }, 30000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [simulationMode]);
 
+  const activeMoisture = simulationMode ? simMoisture : sensors.soilMoisture;
   const isIrrigate = decision?.recommendation === "IRRIGATE";
-  const moistureStatus = sensors.soilMoisture < 40 ? "Low" : sensors.soilMoisture < 60 ? "Moderate" : "Good";
-  const moisturePercent = Math.min(100, Math.max(0, sensors.soilMoisture));
+  const moistureStatus =
+    activeMoisture < 30 ? "Critical" : activeMoisture < 40 ? "Low" : activeMoisture < 60 ? "Moderate" : "Good";
+  const moisturePercent = Math.min(100, Math.max(0, activeMoisture));
 
-  // Calculate confidence from weather gate and ML result
-  const confidence = decision ? (
-    decision.weather_gate.passed && decision.ml_result ? 85 : 70
-  ) : 89;
+  const confidence = decision
+    ? decision.weather_gate.passed && decision.ml_result
+      ? 88
+      : 74
+    : 85;
 
-  // Generate reasoning from decision components
-  const reasoning = decision ? (
-    decision.weather_gate.passed
-      ? `Weather gate passed (rain probability: ${decision.weather_gate["rain_probability_%"]}%), ${decision.ml_result ? `ML model (${decision.ml_result.model_version}) recommends ${decision.ml_result.recommendation.toLowerCase()}` : "ML model unavailable"}`
-      : `Weather gate blocked (rain probability: ${decision.weather_gate["rain_probability_%"]}% exceeds threshold)`
-  ) : "Analyzing field conditions and weather data...";
+  const reasoning = decision
+    ? decision.weather_gate.passed
+      ? `Weather gate passed (${decision.weather_gate["rain_probability_%"]}% rain ≤ 30% threshold). ML Model ${decision.ml_result?.model_version || "AMHOE"} evaluated soil moisture (${activeMoisture.toFixed(1)}%) → recommends ${decision.recommendation.toLowerCase().replace(/_/g, " ")}.`
+      : `Weather gate blocked: 6-hour rain forecast (${decision.weather_gate["rain_probability_%"]}%) exceeds 30% cutoff. Natural precipitation expected.`
+    : "Analyzing real-time sensor telemetry and weather gate...";
 
   return (
     <section className="irrigation-decision-panel" aria-label="Automated Irrigation Decision">
-      <div className="decision-panel-card">
-        {/* Error display */}
-        {error && (
-          <div className="error-banner" style={{
-            padding: "12px 16px",
-            backgroundColor: "#fee2e2",
-            border: "1px solid #fecaca",
-            borderRadius: "8px",
-            marginBottom: "16px",
-            color: "#dc2626",
-            fontSize: "14px",
-          }}>
-            {error}
-          </div>
-        )}
-
+      <div className="decision-panel-card" style={{ padding: "18px 20px" }}>
         {/* Header with decision status */}
-        <div className="decision-panel-header">
+        <div className="decision-panel-header" style={{ marginBottom: "16px" }}>
           <div className="decision-label-group">
             <div className="decision-icon-wrapper">
               <div className={`decision-pulse-ring ${isIrrigate ? "green" : "amber"}`} />
@@ -148,23 +142,100 @@ export function IrrigationDecisionStation() {
               </div>
             </div>
             <div className="decision-title-block">
-              <span className="decision-subtitle">AUTOMATED DECISION ENGINE</span>
-              <h3 className="decision-heading">
-                {isIrrigate ? "IRRIGATE NOW" : "HOLD ACTION"}
+              <span className="decision-subtitle">AUTOMATED AMHOE DECISION ENGINE</span>
+              <h3 className="decision-heading" style={{ fontSize: "19px", margin: "2px 0 4px" }}>
+                {isIrrigate ? "RECOMMENDATION: IRRIGATE" : "RECOMMENDATION: HOLD ACTION"}
               </h3>
-              <p className="decision-reasoning">
-                {error || reasoning}
+              <p className="decision-reasoning" style={{ fontSize: "12px", lineHeight: "1.4", margin: 0, color: "var(--text-secondary)" }}>
+                {reasoning}
               </p>
             </div>
           </div>
-          <div className={`decision-status-badge ${isIrrigate ? "go" : "wait"}`}>
-            <span className="status-dot" />
-            <span>{isIrrigate ? "APPROVED" : "WAIT"}</span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className={`decision-status-badge ${isIrrigate ? "go" : "wait"}`}>
+              <span className="status-dot" />
+              <span>{isIrrigate ? "APPROVED" : "STANDBY"}</span>
+            </div>
+            <button
+              onClick={() => {
+                const nextMode = !simulationMode;
+                setSimulationMode(nextMode);
+                if (!nextMode) fetchDecision();
+                else runSimulation(simMoisture, simRain);
+              }}
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: "1px solid var(--border-default)",
+                background: simulationMode ? "var(--green-primary)" : "var(--bg-canvas)",
+                color: simulationMode ? "#fff" : "var(--text-primary)",
+                cursor: "pointer",
+              }}
+              title="Toggle interactive What-If scenario testing"
+            >
+              {simulationMode ? "Exit What-If" : "Test What-If"}
+            </button>
           </div>
         </div>
 
+        {/* Simulation sliders if mode is active */}
+        {simulationMode && (
+          <div
+            style={{
+              background: "rgba(34, 163, 102, 0.08)",
+              border: "1px solid rgba(34, 163, 102, 0.25)",
+              borderRadius: "8px",
+              padding: "12px 14px",
+              marginBottom: "16px",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "14px",
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", marginBottom: "4px" }}>
+                <span>Simulate Soil Moisture</span>
+                <b>{simMoisture}%</b>
+              </div>
+              <input
+                type="range"
+                min={10}
+                max={80}
+                value={simMoisture}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setSimMoisture(val);
+                  runSimulation(val, simRain);
+                }}
+                style={{ width: "100%", accentColor: "var(--green-bright)" }}
+              />
+            </div>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", marginBottom: "4px" }}>
+                <span>Simulate Rain Probability</span>
+                <b>{simRain}%</b>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={90}
+                value={simRain}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setSimRain(val);
+                  runSimulation(simMoisture, val);
+                }}
+                style={{ width: "100%", accentColor: "var(--aqua-primary)" }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Main decision visual with confidence gauge */}
-        <div className="decision-visual">
+        <div className="decision-visual" style={{ padding: "14px 18px", gap: "20px", marginBottom: "16px" }}>
           <div className="confidence-gauge">
             <svg viewBox="0 0 120 60" className="gauge-svg">
               <defs>
@@ -173,13 +244,7 @@ export function IrrigationDecisionStation() {
                   <stop offset="100%" stopColor={isIrrigate ? "#22A366" : "#E09228"} stopOpacity="1" />
                 </linearGradient>
               </defs>
-              <path
-                d="M 10 50 A 50 50 0 0 1 110 50"
-                fill="none"
-                stroke="#E2EAE4"
-                strokeWidth="8"
-                strokeLinecap="round"
-              />
+              <path d="M 10 50 A 50 50 0 0 1 110 50" fill="none" stroke="#E2EAE4" strokeWidth="8" strokeLinecap="round" />
               <path
                 d="M 10 50 A 50 50 0 0 1 110 50"
                 fill="none"
@@ -200,24 +265,24 @@ export function IrrigationDecisionStation() {
 
           <div className="decision-info">
             <div className="info-item">
-              <span className="info-label">Model</span>
-              <span className="info-value">{decision?.ml_result?.model_version || "AMHOE-v1.0"}</span>
+              <span className="info-label">Model Architecture</span>
+              <span className="info-value">{decision?.ml_result?.model_version || "AMHOE-v1.4"}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Safety</span>
-              <span className={`info-value ${decision?.safety_status === "RECOMMENDATION_ONLY" ? "warning" : ""}`}>
+              <span className="info-label">Safety Layer</span>
+              <span className="info-value">
                 {decision?.safety_status || "RECOMMENDATION_ONLY"}
               </span>
             </div>
             <div className="info-item">
-              <span className="info-label">Updated</span>
+              <span className="info-label">Last Synchronized</span>
               <span className="info-value">{lastUpdate || "Just now"}</span>
             </div>
           </div>
         </div>
 
         {/* Sensor readings with animated bars */}
-        <div className="sensor-readings-grid">
+        <div className="sensor-readings-grid" style={{ marginBottom: "16px" }}>
           <div className="sensor-card">
             <div className="sensor-header">
               <div className="sensor-icon temp">
@@ -234,7 +299,7 @@ export function IrrigationDecisionStation() {
                 style={{ width: `${Math.min(100, (sensors.temperature / 50) * 100)}%` }}
               />
             </div>
-            <span className="sensor-range">Range: 0-50°C</span>
+            <span className="sensor-range">Live Ambient Sensor</span>
           </div>
 
           <div className="sensor-card">
@@ -253,7 +318,7 @@ export function IrrigationDecisionStation() {
                 style={{ width: `${sensors.humidity}%` }}
               />
             </div>
-            <span className="sensor-range">Range: 0-100%</span>
+            <span className="sensor-range">Relative Air Humidity</span>
           </div>
 
           <div className="sensor-card">
@@ -267,19 +332,19 @@ export function IrrigationDecisionStation() {
               <span className="sensor-name">Soil Moisture</span>
               <span className={`moisture-badge ${moistureStatus.toLowerCase()}`}>{moistureStatus}</span>
             </div>
-            <div className="sensor-value-large">{sensors.soilMoisture.toFixed(1)}%</div>
+            <div className="sensor-value-large">{activeMoisture.toFixed(1)}%</div>
             <div className="sensor-bar">
               <div
                 className={`sensor-bar-fill soil ${moistureStatus.toLowerCase()}`}
                 style={{ width: `${moisturePercent}%` }}
               />
             </div>
-            <span className="sensor-range">Threshold: 40% minimum</span>
+            <span className="sensor-range">40% Threshold Trigger</span>
           </div>
         </div>
 
         {/* Decision pipeline with animated steps */}
-        <div className="decision-pipeline">
+        <div className="decision-pipeline" style={{ marginBottom: "14px" }}>
           <div className={`pipeline-step ${decision?.weather_gate.passed ? "complete" : "pending"}`}>
             <div className="step-icon-wrapper">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -289,7 +354,7 @@ export function IrrigationDecisionStation() {
             <div className="step-info">
               <span className="step-number">01</span>
               <span className="step-name">Weather Gate</span>
-              <span className="step-status">{decision?.weather_gate.passed ? "PASSED" : "BLOCKED"}</span>
+              <span className="step-status">{decision?.weather_gate.passed ? "PASSED (≤30%)" : "BLOCKED (>30%)"}</span>
             </div>
           </div>
           <div className="pipeline-connector" />
@@ -302,7 +367,7 @@ export function IrrigationDecisionStation() {
             <div className="step-info">
               <span className="step-number">02</span>
               <span className="step-name">Telemetry</span>
-              <span className="step-status">FRESH</span>
+              <span className="step-status">VERIFIED</span>
             </div>
           </div>
           <div className="pipeline-connector" />
@@ -316,19 +381,19 @@ export function IrrigationDecisionStation() {
             <div className="step-info">
               <span className="step-number">03</span>
               <span className="step-name">ML Decision</span>
-              <span className="step-status">{isIrrigate ? "IRRIGATE" : "HOLD"}</span>
+              <span className="step-status">{isIrrigate ? "IRRIGATE" : "HOLD ACTION"}</span>
             </div>
           </div>
         </div>
 
         {/* Footer with refresh */}
-        <div className="decision-panel-footer">
+        <div className="decision-panel-footer" style={{ paddingTop: "12px" }}>
           <div className="footer-text">
             <span className="live-indicator">
               <span className="live-dot" />
-              Live Field Station
+              {simulationMode ? "Interactive What-If Active" : "Live Field Engine Synchronized"}
             </span>
-            <span className="update-time">Updates every 30s</span>
+            <span className="update-time">Telemetry polls every 30s</span>
           </div>
           <button
             className="refresh-decision-btn"

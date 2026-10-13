@@ -83,9 +83,17 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
                 onClick={() => {
                   if (item.type === "sensor") {
                     onSelectWell(item.id);
-                    onNotify(`Focused on sensor ${item.id}`);
+                    onNotify(`Focused on telemetry station: ${item.name}`);
+                  } else if (item.type === "river") {
+                    onSelectWell("sensor-1");
+                    document.getElementById("section-realtime-map")?.scrollIntoView({ behavior: "smooth" });
+                    onNotify(`Navigated to ${item.name} hydrodynamic flow path`);
+                  } else if (item.type === "alert") {
+                    document.getElementById("section-community-alerts")?.scrollIntoView({ behavior: "smooth" });
+                    onNotify("Navigated to community signals and network status");
                   } else {
-                    onNotify(`Filtered view for ${item.name}`);
+                    document.getElementById("section-realtime-map")?.scrollIntoView({ behavior: "smooth" });
+                    onNotify(`Focused on ${item.name}`);
                   }
                   onClose();
                 }}

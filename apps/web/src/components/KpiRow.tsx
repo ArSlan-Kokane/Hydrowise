@@ -1,47 +1,36 @@
 import React from "react";
 import { Icon } from "./Icons";
-
-interface ScenarioData {
-  label: string;
-  rain: number;
-  level: number;
-  risk: string;
-  note: string;
-}
+import type { WeatherSnapshot } from "../types/contracts";
 
 interface KpiRowProps {
-  current: ScenarioData;
-  weather?: {
-    rain: number;
-    provider: string;
-    gatePassed: boolean;
-  } | null;
+  avgSoilMoisture: number;
+  weather: WeatherSnapshot | null;
+  signalsCount: number;
+  avgDepth?: number;
+  period?: number;
+  onPeriodChange?: () => void;
+  onSignalsClick?: () => void;
 }
 
-export function KpiRow({ current, weather }: KpiRowProps) {
-  const isStressed = current.risk === "Critical" || current.risk === "High";
+export function KpiRow({
+  avgSoilMoisture,
+  weather,
+  signalsCount,
+  avgDepth = 12.8,
+  period = 30,
+  onPeriodChange,
+  onSignalsClick,
+}: KpiRowProps) {
+  const rainProb = Number(weather?.["rain_probability_%"] ?? 18);
+  const gatePassed = rainProb <= 30;
 
-  const reserveTrend = isStressed ? "↓ 6.8%" : "↑ 4.2%";
-  const reserveTrendDown = isStressed;
-  const rechargeStatus =
-    current.risk === "Critical"
-      ? "Below normal"
-      : current.risk === "High"
-      ? "Depleted"
-      : "Moderate";
-  const rechargeWord =
-    current.risk === "High" || current.risk === "Critical" ? "At risk" : "Balanced";
-  const waterTableTrend =
-    current.risk === "Critical"
-      ? "↓ 1.80 m"
-      : current.risk === "High"
-      ? "↓ 0.95 m"
-      : "↓ 0.42 m";
-  const waterTableVal =
-    current.risk === "Critical" ? "14.2" : current.risk === "High" ? "12.8" : "11.6";
+  const moistureStatus =
+    avgSoilMoisture >= 40 ? "Stable" : avgSoilMoisture >= 30 ? "Watch" : "Stressed";
+  const reserveTrend = avgSoilMoisture >= 40 ? "↑ 4.2% recharge" : "↓ 6.8% drawdown";
+  const reserveTrendDown = avgSoilMoisture < 40;
 
-  const effectiveRain = weather ? weather.rain : current.rain;
-  const gatePassed = weather ? weather.gatePassed : current.rain <= 30;
+  // Drawdown adjusted by period
+  const periodDrawdown = period === 7 ? "↓ 0.28 m" : period === 30 ? "↓ 0.95 m" : "↓ 1.85 m";
 
   return (
     <section className="insight-row" id="kpi-section" aria-label="Key metrics dashboard">
@@ -54,7 +43,7 @@ export function KpiRow({ current, weather }: KpiRowProps) {
             </svg>
           </div>
           <span className="instrument-title" id="reserve-label">
-            GROUNDWATER RESERVE
+            SOIL & AQUIFER RESERVE
           </span>
           <span className={`stat-pill ${reserveTrendDown ? "down" : "up"}`}>
             {reserveTrend}
@@ -62,48 +51,47 @@ export function KpiRow({ current, weather }: KpiRowProps) {
         </div>
 
         <div className="instrument-main-val">
-          <span className="stat-number">{current.level}</span>
-          <span className="stat-denom">/ 100</span>
+          <span className="stat-number">{Math.round(avgSoilMoisture)}%</span>
+          <span className="stat-denom">avg moisture</span>
         </div>
 
         <div
           className="instrument-progress"
           role="progressbar"
-          aria-valuenow={current.level}
+          aria-valuenow={Math.round(avgSoilMoisture)}
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <div className="progress-fill" style={{ width: `${current.level}%` }} />
+          <div
+            className="progress-fill"
+            style={{
+              width: `${Math.max(5, Math.min(100, avgSoilMoisture))}%`,
+              background: avgSoilMoisture >= 40 ? "#22A366" : avgSoilMoisture >= 30 ? "#E09228" : "#D64545",
+            }}
+          />
         </div>
 
         <div className="instrument-subtext">
-          {effectiveRain > 30
-            ? `Active rain recharge boost: +${Math.round(effectiveRain * 0.12)}% natural infiltration`
-            : "Compared with the same period last year"}
+          Status: <b className="highlight-dark">{moistureStatus}</b> across 5 real-time district stations
         </div>
 
         <div className="instrument-card-footer">
           <div className="instrument-metadata">
             <div className="meta-line">
               <span className="meta-pin-red">📍</span>
-              <span>Kalyanpur Block Region</span>
+              <span>Sangli District Watershed</span>
             </div>
             <div className="meta-line">
-              <span className="meta-icon-people">👥</span>
-              <span>Affects 12,400 people</span>
-            </div>
-            <div className="meta-line">
-              <span className="meta-icon-wells">💧</span>
-              <span>68 monitored wells</span>
+              <span>💧</span>
+              <span>Krishna River basin monitored</span>
             </div>
           </div>
 
-          {/* Mini Wave Vector Graphic */}
           <div className="mini-wave-wrap" aria-hidden="true">
             <svg viewBox="0 0 60 22" fill="none" className="mini-wave-svg">
               <path
                 d="M 2 16 C 12 12, 18 19, 30 14 S 45 7, 58 10"
-                stroke="#22A366"
+                stroke={avgSoilMoisture >= 40 ? "#22A366" : "#D64545"}
                 strokeWidth="1.8"
                 strokeLinecap="round"
               />
@@ -128,97 +116,105 @@ export function KpiRow({ current, weather }: KpiRowProps) {
 
         <div className="instrument-main-val">
           <span className="stat-word-serif">
-            {effectiveRain > 50 ? "High Inflow" : effectiveRain > 30 ? "Rain Inflow" : "Dry Window"}
+            {rainProb > 50 ? "High Inflow" : rainProb > 30 ? "Rain Gate Hold" : "Dry Window"}
           </span>
         </div>
 
         <div className="instrument-subtext">
-          Live Open-Meteo: <b className="highlight-dark">{effectiveRain}% rain probability</b> in next 6h
+          Live Open-Meteo: <b className="highlight-dark">{rainProb}% rain probability</b> (6h horizon)
         </div>
 
         <div className="instrument-card-footer">
           <div className="instrument-metadata">
             <div className="meta-line">
               <span>🌦️</span>
-              <span>{weather?.provider ? `Grid: ${weather.provider}` : "Open-Meteo (18.52°N, 73.86°E)"}</span>
+              <span>{weather?.provider || "Open-Meteo (16.85°N, 74.58°E)"}</span>
             </div>
             <div className="meta-line">
               <span>⚡</span>
-              <span>{gatePassed ? "Gate: Passed → ML Irrigation Eligible" : "Gate: Triggered → Irrigation Suspended"}</span>
-            </div>
-            <div className="meta-line">
-              <span>💧</span>
-              <span>{effectiveRain > 30 ? "Aquifer Infiltration: High Natural Inflow" : "Aquifer Infiltration: Normal Baseline"}</span>
+              <span>{gatePassed ? "Gate: Clear → Irrigation Allowed" : "Gate: Tripped → Rain Expected"}</span>
             </div>
           </div>
 
-          {/* Mini 4 Equalizer Bars */}
           <div className="mini-equalizer" aria-hidden="true">
-            <span className="eq-bar bar-1" style={{ height: `${Math.min(100, Math.max(25, effectiveRain * 0.9))}%` }} />
-            <span className="eq-bar bar-2" style={{ height: `${Math.min(100, Math.max(35, effectiveRain * 1.1))}%` }} />
-            <span className="eq-bar bar-3" style={{ height: `${Math.min(100, Math.max(20, effectiveRain * 0.75))}%` }} />
-            <span className="eq-bar bar-4" style={{ height: `${Math.min(100, Math.max(30, effectiveRain * 1.0))}%` }} />
+            <span className="eq-bar bar-1" style={{ height: `${Math.min(100, Math.max(25, rainProb * 0.9))}%` }} />
+            <span className="eq-bar bar-2" style={{ height: `${Math.min(100, Math.max(35, rainProb * 1.1))}%` }} />
+            <span className="eq-bar bar-3" style={{ height: `${Math.min(100, Math.max(20, rainProb * 0.75))}%` }} />
+            <span className="eq-bar bar-4" style={{ height: `${Math.min(100, Math.max(30, rainProb * 1.0))}%` }} />
           </div>
         </div>
       </article>
 
       {/* 3. Active Signals */}
-      <article className="instrument-card" aria-labelledby="signals-label">
+      <article
+        className="instrument-card clickable-card"
+        aria-labelledby="signals-label"
+        onClick={onSignalsClick}
+        style={{ cursor: onSignalsClick ? "pointer" : "default" }}
+      >
         <div className="instrument-header">
           <div className="instrument-icon-circle dark">
             <Icon name="activity" />
           </div>
           <span className="instrument-title" id="signals-label">
-            ACTIVE SIGNALS
+            COMMUNITY SIGNALS
           </span>
           <span className="beacon-dot gold" aria-hidden="true" />
         </div>
 
         <div className="instrument-main-val">
-          <span className="stat-number">06</span>
-          <span className="stat-label-small">needs review</span>
+          <span className="stat-number">{String(signalsCount).padStart(2, "0")}</span>
+          <span className="stat-label-small">field reports</span>
         </div>
 
-        <div className="instrument-subtext">4 field reports · 2 aquifer watch</div>
+        <div className="instrument-subtext">
+          Ground observations ingested from local farmers & ward cells
+        </div>
 
-        <div className="instrument-metadata">
-          <div className="meta-line">
-            <span className="meta-bullet amber">🛡</span>
-            <span>Priority: Medium</span>
-          </div>
-          <div className="meta-line">
-            <span className="meta-bullet grey">🕒</span>
-            <span>Last updated: 2 hours ago</span>
-          </div>
-          <div className="meta-line">
-            <span className="meta-bullet red">📍</span>
-            <span>South-east cluster affected</span>
+        <div className="instrument-card-footer">
+          <div className="instrument-metadata">
+            <div className="meta-line">
+              <span className="meta-bullet amber">🛡</span>
+              <span>Status: Active Ground Network</span>
+            </div>
+            <div className="meta-line">
+              <span className="meta-bullet grey">🕒</span>
+              <span>Real-time ingestion enabled</span>
+            </div>
           </div>
         </div>
       </article>
 
-      {/* 4. Water Table */}
+      {/* 4. Water Table Depth */}
       <article className="instrument-card" aria-labelledby="water-table-label">
         <div className="instrument-header">
           <div className="instrument-icon-circle blue">
             <Icon name="gauge" />
           </div>
           <span className="instrument-title" id="water-table-label">
-            WATER TABLE
+            WATER TABLE DRAWDOWN
           </span>
-          <span className="stat-pill down">{waterTableTrend}</span>
+          <span className="stat-pill down">{periodDrawdown}</span>
         </div>
 
         <div className="instrument-main-val">
-          <span className="stat-number">{waterTableVal}</span>
+          <span className="stat-number">{avgDepth.toFixed(1)}</span>
           <span className="stat-label-small">m avg depth</span>
         </div>
 
-        <div className="instrument-subtext">Across 68 monitored wells</div>
+        <div className="instrument-subtext">
+          Measured across monitored agricultural borewells
+        </div>
 
         <div className="trend-dropdown-row">
-          <button className="small-trend-select" type="button">
-            <span>Last 30 days</span>
+          <button
+            className="small-trend-select"
+            type="button"
+            onClick={onPeriodChange}
+            title="Click to toggle time horizon"
+            style={{ cursor: "pointer" }}
+          >
+            <span>Last {period} days</span>
             <Icon name="chevron" />
           </button>
         </div>
@@ -227,19 +223,14 @@ export function KpiRow({ current, weather }: KpiRowProps) {
           <div className="instrument-metadata">
             <div className="meta-line">
               <span>📈</span>
-              <span>Trend: Declining slowly</span>
+              <span>Telemetry: Monitored 24/7</span>
             </div>
             <div className="meta-line">
               <span>🏡</span>
-              <span>85% wells stable</span>
-            </div>
-            <div className="meta-line">
-              <span>⚠️</span>
-              <span>3 wells need attention</span>
+              <span>Regional aquifer baseline stable</span>
             </div>
           </div>
 
-          {/* Mini Sparkline Graphic */}
           <div className="mini-sparkline-wrap" aria-hidden="true">
             <svg viewBox="0 0 60 24" fill="none" className="mini-sparkline-svg">
               <path

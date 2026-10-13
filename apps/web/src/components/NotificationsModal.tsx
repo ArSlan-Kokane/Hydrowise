@@ -169,7 +169,7 @@ export function NotificationsModal({ isOpen, onClose, onNotify }: NotificationsM
           Acknowledge all
         </button>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)" }}>
-          Kalyanpur Alert Cell
+          Sangli District Alert Cell
         </span>
       </div>
     </div>

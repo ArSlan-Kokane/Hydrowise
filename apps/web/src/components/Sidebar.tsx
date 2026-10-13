@@ -36,12 +36,6 @@ export function Sidebar({
     setActive(label);
     onClose();
 
-    // Special handling for Local administration - open drawer instead of scrolling
-    if (label === "Local administration") {
-      onOpenAdmin();
-      return;
-    }
-
     const sectionIdMap: { [key: string]: string } = {
       "Overview": "section-overview",
       "Real-time map": "section-realtime-map",

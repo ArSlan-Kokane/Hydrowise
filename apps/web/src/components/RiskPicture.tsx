@@ -1,22 +1,32 @@
 import React from "react";
 import { Icon } from "./Icons";
 
-interface ScenarioData {
-  label: string;
-  rain: number;
-  level: number;
-  risk: string;
-  note: string;
-}
-
 interface RiskPictureProps {
-  current: ScenarioData;
-  riskText: string;
-  onOpenDetail: () => void;
+  waterSecurityLevel: number;
+  rainProbability: number;
+  signalsCount: number;
+  selectedStationName?: string;
+  onOpenDetail?: () => void;
 }
 
-export function RiskPicture({ current, riskText, onOpenDetail }: RiskPictureProps) {
-  const riskClass = current.risk.toLowerCase();
+export function RiskPicture({
+  waterSecurityLevel,
+  rainProbability,
+  signalsCount,
+  selectedStationName = "Sangli Central Station",
+  onOpenDetail,
+}: RiskPictureProps) {
+  const riskClass =
+    waterSecurityLevel < 35 ? "critical" : waterSecurityLevel < 55 ? "watch" : "good";
+  const riskLabel =
+    waterSecurityLevel < 35 ? "Critical" : waterSecurityLevel < 55 ? "Watch" : "Stable";
+
+  const riskHeadline =
+    waterSecurityLevel < 35
+      ? "Severe moisture deficit across southern wellhead cluster"
+      : waterSecurityLevel < 55
+      ? "Moderate drawdown: natural recharge and extraction balancing"
+      : "Aquifer levels stable with favorable recharge buffer";
 
   return (
     <aside className="risk-card" aria-labelledby="risk-heading">
@@ -36,33 +46,40 @@ export function RiskPicture({ current, riskText, onOpenDetail }: RiskPictureProp
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
           </svg>
-          <span className="risk-header-label">RISK PICTURE</span>
+          <span className="risk-header-label">AQUIFER RISK ASSESSMENT</span>
         </div>
-        <span className={`risk-badge ${riskClass}`}>{current.risk}</span>
+        <span className={`risk-badge ${riskClass}`}>{riskLabel.toUpperCase()}</span>
       </div>
 
       {/* Headings */}
       <h3 id="risk-heading" className="risk-headline">
-        {riskText}
+        {riskHeadline}
       </h3>
       <p className="risk-description">
-        South-east aquifer stress is the most important change since last week.
+        Telemetry focused on <b>{selectedStationName}</b>.
       </p>
 
       {/* Water Security Progress Gauge */}
       <div className="water-security-section">
         <div className="security-labels">
-          <span className="security-title">WATER SECURITY</span>
-          <span className="security-pct">{current.level}%</span>
+          <span className="security-title">REGIONAL WATER SECURITY</span>
+          <span className="security-pct">{Math.round(waterSecurityLevel)}%</span>
         </div>
         <div
           className="security-progress-bar"
           role="progressbar"
-          aria-valuenow={current.level}
+          aria-valuenow={Math.round(waterSecurityLevel)}
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <div className="security-fill" style={{ width: `${current.level}%` }} />
+          <div
+            className="security-fill"
+            style={{
+              width: `${Math.max(5, Math.min(100, waterSecurityLevel))}%`,
+              background:
+                waterSecurityLevel < 35 ? "#D64545" : waterSecurityLevel < 55 ? "#E09228" : "#22A366",
+            }}
+          />
         </div>
       </div>
 
@@ -71,63 +88,40 @@ export function RiskPicture({ current, riskText, onOpenDetail }: RiskPictureProp
         {/* Row 1: Crop demand */}
         <div className="risk-feed-item">
           <div className="risk-feed-icon green-icon">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="7 17 17 7" />
               <polyline points="7 7 17 7 17 17" />
             </svg>
           </div>
           <div className="risk-feed-body">
-            <b>Crop demand</b>
-            <small>High in 3 village clusters</small>
+            <b>Crop Water Demand</b>
+            <small>{waterSecurityLevel < 40 ? "High demand in wheat & cane tracts" : "Normal seasonal irrigation rate"}</small>
           </div>
-          <div className="risk-feed-action amber">
-            <span>Rising</span>
-            <Icon name="chevron" />
+          <div className={`risk-feed-action ${waterSecurityLevel < 40 ? "amber" : "green"}`}>
+            <span>{waterSecurityLevel < 40 ? "Elevated" : "Optimal"}</span>
           </div>
         </div>
 
         {/* Row 2: Rain outlook */}
         <div className="risk-feed-item">
           <div className="risk-feed-icon cyan-icon">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 12c3-4 6-4 9 0s6 4 9 0" />
             </svg>
           </div>
           <div className="risk-feed-body">
-            <b>Rain outlook</b>
-            <small>{current.rain}% probability · 6 hours</small>
+            <b>Rain Infiltration Outlook</b>
+            <small>{rainProbability}% probability · 6-hour horizon</small>
           </div>
-          <div className="risk-feed-action green">
-            <span>{current.rain > 30 ? "Favorable" : "Useful"}</span>
-            <Icon name="chevron" />
+          <div className={`risk-feed-action ${rainProbability > 30 ? "green" : "amber"}`}>
+            <span>{rainProbability > 30 ? "Rain Gate Blocked" : "Dry Window"}</span>
           </div>
         </div>
 
         {/* Row 3: Community reports */}
         <div className="risk-feed-item">
           <div className="risk-feed-icon blue-icon">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -135,21 +129,22 @@ export function RiskPicture({ current, riskText, onOpenDetail }: RiskPictureProp
             </svg>
           </div>
           <div className="risk-feed-body">
-            <b>Community reports</b>
-            <small>2 new observations today</small>
+            <b>Groundwater Field Signals</b>
+            <small>{signalsCount} active community observations recorded</small>
           </div>
           <div className="risk-feed-action amber">
-            <span>Review</span>
-            <Icon name="chevron" />
+            <span>Verified</span>
           </div>
         </div>
       </div>
 
       {/* Bottom Link */}
-      <button className="risk-detail-link" onClick={onOpenDetail}>
-        <span>Open aquifer detail</span>
-        <Icon name="chevron" />
-      </button>
+      {onOpenDetail && (
+        <button className="risk-detail-link" onClick={onOpenDetail}>
+          <span>Inspect decision engine telemetry</span>
+          <Icon name="chevron" />
+        </button>
+      )}
     </aside>
   );
 }

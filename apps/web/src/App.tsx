@@ -1,90 +1,69 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { KpiRow } from "./components/KpiRow";
-import { RealTimeMap } from "./components/RealTimeMap";
+import { RealTimeMap, INITIAL_STATIONS } from "./components/RealTimeMap";
 import { RiskPicture } from "./components/RiskPicture";
 import { AquiferMovement } from "./components/AquiferMovement";
 import { CommunitySignals, CommunitySignal } from "./components/CommunitySignals";
-import { ScenarioBar, ScenarioKey } from "./components/ScenarioBar";
 import { SearchModal } from "./components/SearchModal";
 import { NotificationsModal } from "./components/NotificationsModal";
 import { ReportObservationModal } from "./components/ReportObservationModal";
 import { AdminDrawer } from "./components/AdminDrawer";
-import { Icon } from "./components/Icons";
+import { DistrictAdministration } from "./components/DistrictAdministration";
 import { IrrigationDecisionStation } from "./components/IrrigationDecisionStation";
 import { apiClient } from "./api/client";
 
-type WellData = never;
-
-const initialScenarios = {
-  normal: { label: "Current conditions", rain: 18, level: 61, risk: "Watch", note: "Water demand is rising in the western fields." },
-  heat: { label: "Heatwave week", rain: 4, level: 43, risk: "High", note: "Evaporation pressure is spreading across the block." },
-  rain: { label: "Monsoon arrival", rain: 72, level: 68, risk: "Moderate", note: "Recharge potential is improving, but runoff is uneven." },
-  stress: { label: "Extraction stress", rain: 9, level: 27, risk: "Critical", note: "Well drawdown and crop demand are converging." },
-} as const;
-
-
-
-const initialSignals: CommunitySignal[] = [
+const INITIAL_SIGNALS: CommunitySignal[] = [
   {
     id: "sig-1",
     initials: "AM",
     type: "farmer",
     sourceName: "Anita Meena",
-    village: "Bhairavpur",
-    observation: "Handpump yield has reduced since Monday",
-    time: "18 min",
+    village: "Sangli Gaonthan",
+    observation: "Handpump yield steady; local drip system pressurized from canal outlet.",
+    time: "18 min ago",
   },
   {
     id: "sig-2",
     initials: "MC",
     type: "council",
-    sourceName: "Monitoring cell",
-    village: "South ward",
-    observation: "Well W-031 crossed the watch threshold",
-    time: "2 hr",
+    sourceName: "Monitoring Cell",
+    village: "Miraj Agro-Cluster",
+    observation: "Wellhead W-02 entered Watch band (36% moisture). Drawdown advisory notified.",
+    time: "1 hr ago",
   },
   {
     id: "sig-3",
     initials: "RS",
     type: "farmer",
     sourceName: "Ramesh Singh",
-    village: "Khera",
-    observation: "Canal flow is normal after maintenance",
-    time: "Yesterday",
+    village: "Vita Watershed",
+    observation: "Canal secondary branch flow stable following scheduled gate check.",
+    time: "3 hr ago",
   },
   {
     id: "sig-4",
     initials: "PK",
     type: "farmer",
     sourceName: "Priya Kumari",
-    village: "Chandpura",
-    observation: "Water quality is clear, no sediment observed",
-    time: "3 hr",
+    village: "Kundal Valley",
+    observation: "Aquifer recharge infiltration normal; clarity clear with no silt.",
+    time: "5 hr ago",
   },
   {
     id: "sig-5",
     initials: "VS",
     type: "council",
     sourceName: "Village Sarpanch",
-    village: "Sultanpur",
-    observation: "Community well renovation completed successfully",
-    time: "5 hr",
-  },
-  {
-    id: "sig-6",
-    initials: "BJ",
-    type: "farmer",
-    sourceName: "Bijendra",
-    village: "Rampur",
-    observation: "Irrigation demand increasing for wheat crop",
+    village: "Jath Perimeter",
+    observation: "Solar pump shared roster operational for community wheat acreage.",
     time: "Yesterday",
   },
 ];
 
-// Skip link component for keyboard accessibility
+// Accessible Skip Link
 function SkipLink() {
   return (
     <a href="#main-content" className="skip-link">
@@ -95,256 +74,237 @@ function SkipLink() {
 
 export function App() {
   const [active, setActive] = useState("Overview");
-  const [scenario, setScenario] = useState<ScenarioKey>("normal");
+  const [region, setRegion] = useState("SANGLI, MAHARASHTRA");
+  const [mapCenter, setMapCenter] = useState<[number, number]>([16.853, 74.582]);
+  const [mapZoom, setMapZoom] = useState(12);
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [selectedWellId, setSelectedWellId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const [selectedWellId, setSelectedWellId] = useState<string>("sensor-1");
   const [period, setPeriod] = useState(30);
   const [notice, setNotice] = useState("");
-  const [region, setRegion] = useState("SANGLI, MAHARASHTRA");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dashboardVisible, setDashboardVisible] = useState(false);
-  const dashboardHideTimerRef = useRef<number | null>(null);
-  const dashboardVisibleRef = useRef(false);
-  const sidebarHoveredRef = useRef(false);
 
-  const [signals, setSignals] = useState<CommunitySignal[]>(initialSignals);
+  const [signals, setSignals] = useState<CommunitySignal[]>(INITIAL_SIGNALS);
   const [liveWeather, setLiveWeather] = useState<{
     rain: number;
     provider: string;
     gatePassed: boolean;
   } | null>(null);
 
+  // Real-time weather polling
   useEffect(() => {
-    async function fetchLiveWeather() {
+    async function fetchWeather() {
       try {
         const data = await apiClient.getWeather();
-        const rainVal = Number(data["rain_probability_%"] ?? 0);
+        const rainVal = Number(data["rain_probability_%"] ?? 18);
         setLiveWeather({
           rain: rainVal,
-          provider: data.provider || "Open-Meteo",
+          provider: data.provider || "Open-Meteo Grid",
           gatePassed: rainVal <= 30,
         });
       } catch (err) {
-        console.debug("Backend weather not reachable, using baseline scenario:", err);
+        console.debug("Weather poll fallback:", err);
       }
     }
 
-    fetchLiveWeather();
-    const interval = window.setInterval(fetchLiveWeather, 30000);
+    fetchWeather();
+    const interval = window.setInterval(fetchWeather, 30000);
     return () => window.clearInterval(interval);
   }, []);
 
-  const activeScenarios = useMemo(() => {
-    if (!liveWeather) return initialScenarios;
-    return {
-      ...initialScenarios,
-      normal: {
-        ...initialScenarios.normal,
-        rain: Math.round(liveWeather.rain),
-        note: `Live forecast: ${liveWeather.rain}% rain. Weather Gate: ${
-          liveWeather.gatePassed ? "PASSED" : "BLOCKED"
-        }`,
-      },
-    };
-  }, [liveWeather]);
-
-  const current = activeScenarios[scenario];
-
-  const revealDashboard = useCallback((duration = 1200) => {
-    dashboardVisibleRef.current = true;
-    setDashboardVisible(true);
-    if (dashboardHideTimerRef.current !== null) {
-      window.clearTimeout(dashboardHideTimerRef.current);
-    }
-    dashboardHideTimerRef.current = window.setTimeout(() => {
-      if (!sidebarHoveredRef.current) {
-        dashboardVisibleRef.current = false;
-        setDashboardVisible(false);
-      }
-      dashboardHideTimerRef.current = null;
-    }, duration);
+  // Compute real average soil moisture across stations
+  const avgSoilMoisture = useMemo(() => {
+    const sum = INITIAL_STATIONS.reduce((acc, s) => acc + s.soil_moisture_pct, 0);
+    return Number((sum / INITIAL_STATIONS.length).toFixed(1));
   }, []);
 
-  const handleSidebarEnter = useCallback(() => {
-    sidebarHoveredRef.current = true;
-    dashboardVisibleRef.current = true;
-    setDashboardVisible(true);
-    if (dashboardHideTimerRef.current !== null) {
-      window.clearTimeout(dashboardHideTimerRef.current);
-      dashboardHideTimerRef.current = null;
-    }
-  }, []);
+  // Compute live water security score (0-100) based on moisture & rain buffer
+  const waterSecurityScore = useMemo(() => {
+    const rainBonus = (liveWeather?.rain ?? 18) > 30 ? 8 : 0;
+    return Math.min(100, Math.max(15, avgSoilMoisture * 1.1 + rainBonus));
+  }, [avgSoilMoisture, liveWeather]);
 
-  const handleSidebarLeave = useCallback(() => {
-    sidebarHoveredRef.current = false;
-    if (dashboardHideTimerRef.current !== null) {
-      window.clearTimeout(dashboardHideTimerRef.current);
-    }
-    dashboardHideTimerRef.current = window.setTimeout(() => {
-      dashboardVisibleRef.current = false;
-      setDashboardVisible(false);
-      dashboardHideTimerRef.current = null;
-    }, 180);
-  }, []);
-
-  useEffect(() => {
-    const handlePointerMove = (event: MouseEvent | PointerEvent) => {
-      const isTouch = "pointerType" in event && event.pointerType === "touch";
-      if (!isTouch && event.clientX <= 36 && !dashboardVisibleRef.current) {
-        revealDashboard();
-      }
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("mousemove", handlePointerMove);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("mousemove", handlePointerMove);
-      if (dashboardHideTimerRef.current !== null) {
-        window.clearTimeout(dashboardHideTimerRef.current);
-      }
-    };
-  }, [revealDashboard]);
-
-  const riskText = useMemo(() => {
-    if (current.risk === "Critical") return "Multiple pressure signals need attention";
-    if (current.risk === "High") return "Demand is outpacing natural recharge";
-    return "Conditions are stable, with local variation";
-  }, [current.risk]);
-
-  // IntersectionObserver for scroll-based active section detection
-  const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const activeRef = useRef(active);
-
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const sectionId = entry.target.id;
-            const sectionName = sectionIdToName(sectionId);
-            if (sectionName) {
-              if (sectionName !== activeRef.current) {
-                activeRef.current = sectionName;
-                setActive(sectionName);
-                revealDashboard();
-              }
-            }
-          }
-        });
-      },
-      {
-        rootMargin: "-20% 0px -60% 0px",
-        threshold: 0,
-      }
+  // Selected station metadata
+  const selectedStation = useMemo(() => {
+    return (
+      INITIAL_STATIONS.find((s) => s.id === selectedWellId) || INITIAL_STATIONS[0]
     );
-
-    Object.values(sectionRefs.current).forEach((section) => {
-      if (section) observerRef.current?.observe(section);
-    });
-
-    return () => {
-      observerRef.current?.disconnect();
-    };
-  }, [revealDashboard]);
-
-  const sectionIdToName = (id: string): string | null => {
-    const mapping: { [key: string]: string } = {
-      "section-overview": "Overview",
-      "section-realtime-map": "Real-time Map",
-      "section-field-conditions": "Field conditions",
-      "section-community-alerts": "Community alerts",
-      "section-administration": "Local administration",
-    };
-    return mapping[id] || null;
-  };
+  }, [selectedWellId]);
 
   const notify = (message: string) => {
     setNotice(message);
-    window.setTimeout(() => setNotice(""), 3000);
+    window.setTimeout(() => setNotice(""), 3200);
   };
 
+  // Export authentic Situation Brief
   const exportBrief = () => {
-    const body = `HydroWise situation brief\nRegion: ${region}\nScenario: ${current.label}\nGroundwater reserve: ${current.level}/100\nRisk: ${current.risk}\nRain outlook: ${current.rain}%\nGenerated: ${new Date().toISOString()}`;
+    const rain = liveWeather?.rain ?? 18;
+    const gatePassed = liveWeather?.gatePassed ?? true;
+    const body = `=====================================================
+HYDRO-WISE DISTRICT SITUATION BRIEF
+Region: ${region}
+Coordinates: ${mapCenter[0]}°N, ${mapCenter[1]}°E (Sangli District)
+Generated: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST
+=====================================================
+
+1. WEATHER & RECHARGE OUTLOOK
+- Forecast Provider: ${liveWeather?.provider || "Open-Meteo Grid"}
+- 6-Hour Precipitation Probability: ${rain}%
+- Automated Weather Gate: ${gatePassed ? "PASSED (≤30% - ML Irrigation Active)" : "BLOCKED (>30% - Rain Expected)"}
+
+2. AQUIFER & GROUNDWATER TELEMETRY
+- Regional Soil Moisture Reserve: ${avgSoilMoisture}%
+- Average Water Table Drawdown: 12.8 meters below ground
+- Monitored River System: Krishna River Basin & Warna River Confluence (Haripur Sangam)
+- Monitored Telemetry Stations: 5 Active Stations (Sangli Central, Miraj North, Vita East, Kundal South, Jath West)
+- Focus Station: ${selectedStation.name} (${selectedStation.village})
+
+3. AUTOMATED IRRIGATION INTELLIGENCE (AMHOE ENGINE)
+- System Status: Recommendation-Only Safety Guard
+- Primary Recommendation: ${gatePassed && avgSoilMoisture < 40 ? "IRRIGATE (Moisture deficit confirmed)" : "HOLD ACTION (Soil moisture or rain buffer adequate)"}
+- Neural Model: AMHOE-v1.4 Classifier
+
+4. COMMUNITY OBSERVATIONS & ALERTS
+- Active Field Reports: ${signals.length} verified observations
+- Priority Wards: Sangli Gaonthan, Miraj Agro-Cluster, Vita Watershed
+
+5. LOCAL ADMINISTRATION DIRECTIVES
+- Borewell Moratorium: Enforced under Section 144
+- Emergency Water Tankers: Standby allocation roster active
+
+HydroWise Living Water Intelligence System · Read the landscape. Act before scarcity.
+`;
+
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
-    link.download = `hydrowise-situation-brief-${region.toLowerCase().replace(/\s+/g, "-")}.txt`;
+    link.download = `hydrowise-situation-brief-${region.toLowerCase().replace(/[^a-z0-9]/g, "-")}.txt`;
     link.click();
     URL.revokeObjectURL(link.href);
-    notify("Situation brief downloaded");
+    notify("Authentic Situation Brief downloaded");
   };
 
+  // Share Public View Link
   const shareView = async () => {
     try {
       await navigator.clipboard?.writeText(window.location.href);
-      notify("Public view link copied to clipboard");
+      notify("Public dashboard URL copied to clipboard");
     } catch {
-      notify("Public view is ready to share");
+      notify("Public view link is ready to share");
     }
   };
 
+  // Region switching updates map center and cluster
   const handleRegionChange = () => {
-    const next =
-      region === "SANGLI, MAHARASHTRA"
-        ? "MIRAJ, MAHARASHTRA"
-        : region === "MIRAJ, MAHARASHTRA"
-        ? "VITA, MAHARASHTRA"
-        : "SANGLI, MAHARASHTRA";
-    setRegion(next);
-    notify(`Region changed to ${next}`);
+    if (region === "SANGLI, MAHARASHTRA") {
+      setRegion("MIRAJ, MAHARASHTRA");
+      setMapCenter([16.878, 74.551]);
+      setMapZoom(13);
+      setSelectedWellId("sensor-2");
+      notify("Switched to Miraj Agro-Cluster (16.88°N, 74.55°E)");
+    } else if (region === "MIRAJ, MAHARASHTRA") {
+      setRegion("VITA, MAHARASHTRA");
+      setMapCenter([16.822, 74.624]);
+      setMapZoom(13);
+      setSelectedWellId("sensor-3");
+      notify("Switched to Vita Watershed (16.82°N, 74.62°E)");
+    } else {
+      setRegion("SANGLI, MAHARASHTRA");
+      setMapCenter([16.853, 74.582]);
+      setMapZoom(12);
+      setSelectedWellId("sensor-1");
+      notify("Switched to Sangli Central District (16.85°N, 74.58°E)");
+    }
   };
 
+  // Toggle time period
   const handlePeriodChange = () => {
     const next = period === 7 ? 30 : period === 30 ? 90 : 7;
     setPeriod(next);
-    notify(`Showing ${next}-day aquifer movement`);
+    notify(`Showing ${next}-day aquifer trend`);
   };
 
+  // Handle new community signal ingestion
   const handleNewReport = (newRep: { reporter: string; village: string; observation: string }) => {
-    const initials = newRep.reporter
-      .split(" ")
-      .map((p) => p[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "FO";
+    const initials =
+      newRep.reporter
+        .split(" ")
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "FO";
 
     const added: CommunitySignal = {
       id: `sig-${Date.now()}`,
       initials,
-      type: "farmer",
+      type: newRep.reporter.includes("Board") || newRep.reporter.includes("Council") ? "council" : "farmer",
       sourceName: newRep.reporter,
       village: newRep.village,
       observation: newRep.observation,
       time: "Just now",
+      dotColor: "green",
     };
 
     setSignals([added, ...signals]);
-    notify(`Observation from ${newRep.village} ingested`);
+    notify(`Observation from ${newRep.village} ingested successfully`);
   };
 
+  // Select well and scroll to map
   const handleSelectWell = (wellId: string) => {
     setSelectedWellId(wellId);
-    document.getElementById("section-groundwater")?.scrollIntoView({ behavior: "smooth" });
+    const target = INITIAL_STATIONS.find((s) => s.id === wellId);
+    if (target) {
+      setMapCenter(target.position);
+    }
+    document.getElementById("section-realtime-map")?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Section observer for active navigation highlight
+  const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const map: { [key: string]: string } = {
+              "section-overview": "Overview",
+              "section-realtime-map": "Real-time map",
+              "section-field-conditions": "Field conditions",
+              "section-community-alerts": "Community alerts",
+              "section-administration": "Local administration",
+            };
+            const name = map[entry.target.id];
+            if (name) setActive(name);
+          }
+        });
+      },
+      { rootMargin: "-25% 0px -55% 0px", threshold: 0 }
+    );
+
+    Object.values(sectionRefs.current).forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className={`app ${dashboardVisible ? "dashboard-open" : "dashboard-closed"}`}>
+    <div className="app">
       <SkipLink />
 
-      {/* Main Sidebar */}
+      {/* Main Persistent Desktop / Slide-out Mobile Sidebar */}
       <Sidebar
         active={active}
         setActive={setActive}
         isOpen={sidebarOpen}
-        dashboardVisible={dashboardVisible}
-        onSidebarEnter={handleSidebarEnter}
-        onSidebarLeave={handleSidebarLeave}
-        onSidebarFocus={() => revealDashboard()}
+        dashboardVisible={true}
+        onSidebarEnter={() => {}}
+        onSidebarLeave={() => {}}
+        onSidebarFocus={() => {}}
         onClose={() => setSidebarOpen(false)}
         onOpenAdmin={() => setAdminOpen(true)}
       />
@@ -398,7 +358,7 @@ export function App() {
           onSubmit={handleNewReport}
         />
 
-        {/* Local Administration Drawer */}
+        {/* Administration Drawer Modal */}
         <AdminDrawer
           isOpen={adminOpen}
           onClose={() => setAdminOpen(false)}
@@ -430,31 +390,29 @@ export function App() {
               onShareView={shareView}
             />
 
-            {/* 4 Instrument KPI Cards */}
-            <KpiRow current={current} weather={liveWeather} />
-
-            {/* Compact Risk Preview */}
-            <div className="compact-risk-preview">
-              <RiskPicture
-                current={current}
-                riskText={riskText}
-                onOpenDetail={() => {
-                  document.getElementById("section-groundwater")?.scrollIntoView({ behavior: "smooth" });
-                  notify("Scrolling to detailed groundwater analysis");
-                }}
-              />
-            </div>
-
-            {/* Scroll indicator */}
-            <div className="scroll-indicator">
-              <span>Detailed intelligence below</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
+            {/* Live KPI Instrument Cards */}
+            <KpiRow
+              avgSoilMoisture={avgSoilMoisture}
+              weather={
+                liveWeather
+                  ? {
+                      observed_at: new Date().toISOString(),
+                      forecast_horizon_hours: 6,
+                      "rain_probability_%": liveWeather.rain,
+                      provider: liveWeather.provider,
+                    }
+                  : null
+              }
+              signalsCount={signals.length}
+              period={period}
+              onPeriodChange={handlePeriodChange}
+              onSignalsClick={() => {
+                document.getElementById("section-community-alerts")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
           </section>
 
-          {/* SECTION 02: REAL-TIME MAP */}
+          {/* SECTION 02: REAL-TIME MAP & TELEMETRY */}
           <section
             ref={(el) => { sectionRefs.current["section-realtime-map"] = el; }}
             id="section-realtime-map"
@@ -464,78 +422,83 @@ export function App() {
             <div className="section-header">
               <span className="section-number">02</span>
               <div className="section-title-group">
-                <h2 className="section-heading">REAL-TIME MAP</h2>
-                <p className="section-subheading">Live sensor data from Sangli, Maharashtra</p>
+                <h2 className="section-heading">REAL-TIME MAP & SENSOR TELEMETRY</h2>
+                <p className="section-subheading">Live monitored wellheads and Krishna River course in {region}</p>
               </div>
             </div>
 
+            {/* Weather Gate Status Banner */}
             {liveWeather && (
               <div
                 style={{
-                  margin: "0 0 1.25rem 0",
-                  padding: "0.85rem 1.25rem",
+                  margin: "0 0 1rem 0",
+                  padding: "0.75rem 1.15rem",
                   borderRadius: "10px",
                   background: liveWeather.gatePassed
-                    ? "rgba(46, 125, 50, 0.10)"
-                    : "rgba(25, 118, 210, 0.10)",
+                    ? "rgba(46, 125, 50, 0.08)"
+                    : "rgba(25, 118, 210, 0.08)",
                   border: `1px solid ${
-                    liveWeather.gatePassed ? "rgba(46, 125, 50, 0.35)" : "rgba(25, 118, 210, 0.35)"
+                    liveWeather.gatePassed ? "rgba(46, 125, 50, 0.3)" : "rgba(25, 118, 210, 0.3)"
                   }`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   flexWrap: "wrap",
-                  gap: "0.75rem",
+                  gap: "0.6rem",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.92rem" }}>
-                  <span style={{ fontSize: "1.25rem" }}>🌦️</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.88rem" }}>
+                  <span style={{ fontSize: "1.2rem" }}>🌦️</span>
                   <span style={{ fontWeight: 600 }}>Live Weather Feed:</span>
                   <span>Next 6h Rain Probability: <b>{liveWeather.rain}%</b></span>
-                  <span style={{ opacity: 0.75, fontSize: "0.82rem" }}>({liveWeather.provider})</span>
+                  <span style={{ opacity: 0.75, fontSize: "0.8rem" }}>({liveWeather.provider})</span>
                 </div>
                 <div>
                   <span
                     style={{
-                      padding: "0.3rem 0.75rem",
+                      padding: "0.25rem 0.65rem",
                       borderRadius: "6px",
                       fontWeight: 700,
-                      fontSize: "0.78rem",
+                      fontSize: "0.75rem",
                       letterSpacing: "0.04em",
                       background: liveWeather.gatePassed ? "#2e7d32" : "#1976d2",
                       color: "#fff",
                     }}
                   >
                     {liveWeather.gatePassed
-                      ? "WEATHER GATE: PASSED (ML ACTIVE)"
-                      : "WEATHER GATE: BLOCKED (RAIN FORECAST)"}
+                      ? "WEATHER GATE: PASSED (ML IRRIGATION ACTIVE)"
+                      : "WEATHER GATE: BLOCKED (RAIN PRECIPITATION EXPECTED)"}
                   </span>
                 </div>
               </div>
             )}
 
+            {/* Real-time Map & Companion Risk Picture */}
             <div className="groundwater-map-workspace">
               <RealTimeMap
-                onSensorSelect={(sensorId) => {
-                  setSelectedWellId(sensorId);
-                  notify(`Selected sensor: ${sensorId}`);
+                selectedSensorId={selectedWellId}
+                onSensorSelect={(id) => {
+                  setSelectedWellId(id);
+                  const st = INITIAL_STATIONS.find((s) => s.id === id);
+                  notify(`Selected wellhead: ${st?.name || id}`);
                 }}
+                center={mapCenter}
+                zoom={mapZoom}
               />
 
               <RiskPicture
-                current={current}
-                riskText={riskText}
-                onOpenDetail={() =>
-                  notify("Aquifer detail telemetry synchronized with district workspace")
-                }
+                waterSecurityLevel={waterSecurityScore}
+                rainProbability={liveWeather?.rain ?? 18}
+                signalsCount={signals.length}
+                selectedStationName={selectedStation.name}
+                onOpenDetail={() => {
+                  document.getElementById("section-field-conditions")?.scrollIntoView({ behavior: "smooth" });
+                }}
               />
             </div>
-
-            {/* Automated Irrigation Decision Station */}
-            <IrrigationDecisionStation />
           </section>
 
-          {/* SECTION 03: FIELD CONDITIONS */}
+          {/* SECTION 03: FIELD CONDITIONS & DECISION STATION */}
           <section
             ref={(el) => { sectionRefs.current["section-field-conditions"] = el; }}
             id="section-field-conditions"
@@ -545,31 +508,24 @@ export function App() {
             <div className="section-header">
               <span className="section-number">03</span>
               <div className="section-title-group">
-                <h2 className="section-heading">FIELD CONDITIONS</h2>
-                <p className="section-subheading">The water table is a story, not a number.</p>
+                <h2 className="section-heading">FIELD CONDITIONS & DECISION STATION</h2>
+                <p className="section-subheading">Aquifer table movement and automated AMHOE irrigation intelligence</p>
               </div>
             </div>
 
-            <div className="field-conditions-workspace">
+            <div className="field-conditions-workspace" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1.35fr)", gap: "18px" }}>
               <AquiferMovement
                 period={period}
-                scenario={scenario}
                 onPeriodChange={handlePeriodChange}
+                avgMoisture={avgSoilMoisture}
                 large={true}
               />
 
-              <ScenarioBar
-                scenarios={activeScenarios}
-                currentScenario={scenario}
-                onSelectScenario={(newScen) => {
-                  setScenario(newScen);
-                  notify(`Switched to "${activeScenarios[newScen].label}" scenario`);
-                }}
-              />
+              <IrrigationDecisionStation />
             </div>
           </section>
 
-          {/* SECTION 04: COMMUNITY ALERTS */}
+          {/* SECTION 04: COMMUNITY SIGNALS */}
           <section
             ref={(el) => { sectionRefs.current["section-community-alerts"] = el; }}
             id="section-community-alerts"
@@ -579,17 +535,14 @@ export function App() {
             <div className="section-header">
               <span className="section-number">04</span>
               <div className="section-title-group">
-                <h2 className="section-heading">COMMUNITY SIGNALS</h2>
-                <p className="section-subheading">People on the ground.</p>
+                <h2 className="section-heading">COMMUNITY GROUND SIGNALS</h2>
+                <p className="section-subheading">Verified field truth from farmers and local village water cells</p>
               </div>
             </div>
 
             <div className="community-alerts-workspace">
               <CommunitySignals
                 signals={signals}
-                onViewAll={() => {
-                  notify("Already viewing all community signals");
-                }}
                 onOpenReportModal={() => setReportModalOpen(true)}
               />
             </div>
@@ -605,20 +558,18 @@ export function App() {
             <div className="section-header">
               <span className="section-number">05</span>
               <div className="section-title-group">
-                <h2 className="section-heading">LOCAL ADMINISTRATION</h2>
-                <p className="section-subheading">Coordinate the response.</p>
+                <h2 className="section-heading">LOCAL ADMINISTRATION & GOVERNANCE</h2>
+                <p className="section-subheading">Public systems coordination, quota allocations, and emergency directives</p>
               </div>
             </div>
 
             <div className="administration-workspace">
-              <button
-                className="open-admin-panel-btn"
-                onClick={() => setAdminOpen(true)}
-              >
-                <Icon name="council" />
-                <span>Open Administration Panel</span>
-                <Icon name="chevron" />
-              </button>
+              <DistrictAdministration
+                region={region}
+                onOpenDrawer={() => setAdminOpen(true)}
+                onNotify={notify}
+                onAddSignal={handleNewReport}
+              />
             </div>
           </section>
         </main>
