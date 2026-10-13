@@ -1,10 +1,16 @@
 /*
-  HydroWise - Complete ESP32 IoT Cloud Sensor Node & Telemetry Ingestion Firmware
-  ================================================================================
+  HydroWise - Complete ESP32 IoT Cloud Sensor Node (ZERO-DEPENDENCY EDITION)
+  ==========================================================================
   Integrated for HydroWise Smart Irrigation Decision Support System.
 
+  NO EXTERNAL LIBRARIES REQUIRED!
+  - Does NOT require Adafruit DHT library
+  - Does NOT require Adafruit Unified Sensor
+  - Does NOT require ArduinoJson
+  - Compiles directly with standard ESP32 Arduino Core!
+
   Reads:
-    - Temperature & Humidity (DHT11 or DHT22) on GPIO 4
+    - Temperature & Humidity (DHT11 or DHT22) on GPIO 4 (via built-in microsecond bitbang reader)
     - Soil Moisture Raw ADC & Voltage on GPIO 34 (ADC1)
     - Rain Sensor (Analog plate with power-on baseline & hysteresis) on GPIO 35 (ADC1)
 
@@ -20,20 +26,12 @@
   Soil Sensor : VCC -> 3.3V, GND -> GND, AOUT -> GPIO 34 (Analog input, not digital DO)
   Rain Sensor : VCC -> 3.3V, GND -> GND, AO   -> GPIO 35 (Analog input, not DO)
   Status LED  : GPIO 2 (Built-in blue LED on most ESP32 DevKit boards)
-
-  REQUIRED LIBRARIES (Arduino IDE Library Manager):
-  -------------------------------------------------
-  1. "DHT sensor library" by Adafruit
-  2. "Adafruit Unified Sensor" by Adafruit
-  3. "ArduinoJson" by Benoit Blanchon (v6 or v7)
 */
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <ArduinoJson.h>
 #include <time.h>
-#include "DHT.h"
 
 // ============================================================================
 // 1. HARDWARE PIN DEFINITIONS
@@ -46,39 +44,37 @@
 // ============================================================================
 // 2. SENSOR TYPE & CALIBRATION
 // ============================================================================
-#define DHTTYPE         DHT11   // Set to DHT11 or DHT22 to match your sensor
-#define ADC_SAMPLES     32      // Samples averaged to smooth ADC electrical noise
+#define DHT_TYPE        11   // Set to 11 for DHT11, or 22 for DHT22
+#define ADC_SAMPLES     32   // Samples averaged to smooth ADC electrical noise
 
-// Soil calibration parameters (calibrate with your soil and sensor):
+// Soil calibration parameters:
 // Measure raw reading in completely dry air vs submerged in water
-#define SOIL_DRY_RAW    3200    // Raw 12-bit ADC in dry air (0% moisture)
-#define SOIL_WET_RAW    1400    // Raw 12-bit ADC in water / saturated soil (100% moisture)
+#define SOIL_DRY_RAW    3200 // Raw 12-bit ADC in dry air (0% moisture)
+#define SOIL_WET_RAW    1400 // Raw 12-bit ADC in water / saturated soil (100% moisture)
 
 // Rain detection mode:
-// Mode A (default): Compares against dry baseline measured at boot
 #define RAIN_USE_BASELINE  true
-#define RAIN_DELTA_ON      400   // Change from baseline indicating active rain
-#define RAIN_DELTA_OFF     200   // Hysteresis cutoff to return to no-rain
-#define RAIN_THRESHOLD     2000  // Fallback threshold if baseline disabled
+#define RAIN_DELTA_ON      400  // Change from baseline indicating active rain
+#define RAIN_DELTA_OFF     200  // Hysteresis cutoff to return to no-rain
+#define RAIN_THRESHOLD     2000 // Fallback threshold if baseline disabled
 #define RAIN_WET_IS_LOWER  true
 
 // ============================================================================
 // 3. NETWORK & CLOUD API CONFIGURATION
 // ============================================================================
-// Update these with your Wi-Fi credentials
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+// Update these with your Wi-Fi credentials (must be 2.4 GHz)
+const char* WIFI_SSID     = "YOUR_WIFI_NAME";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const unsigned long WIFI_TIMEOUT_MS = 20000;
 
 // API Endpoint configuration:
-// For local LAN testing: "http://<YOUR_COMPUTER_LOCAL_IP>:8000" (e.g. "http://192.168.1.100:8000")
-// For Render Cloud deployment: "https://hydrowise-api.onrender.com"
-const char* API_BASE_URL   = "http://192.168.1.100:8000"; 
+// For local testing: Use your computer's Wi-Fi IP address on port 8000
+const char* API_BASE_URL   = "http://10.181.251.251:8000"; 
 const char* DEVICE_ID      = "esp32-field-01";
 const char* DEVICE_API_KEY = "hydrowise-esp32-key-dev";
 
 // Telemetry transmit interval (in milliseconds)
-const unsigned long TELEMETRY_INTERVAL_MS = 10000;  // Send every 10 seconds
+const unsigned long TELEMETRY_INTERVAL_MS = 8000;  // Send every 8 seconds
 
 // Serial Monitor baud rate
 #define SERIAL_BAUD 115200
@@ -86,7 +82,6 @@ const unsigned long TELEMETRY_INTERVAL_MS = 10000;  // Send every 10 seconds
 // ============================================================================
 // 4. GLOBAL OBJECTS & STATE
 // ============================================================================
-DHT dht(DHT_PIN, DHTTYPE);
 WiFiClientSecure wifiClient;
 HTTPClient http;
 
@@ -102,7 +97,89 @@ const long  gmtOffset_sec     = 0;  // UTC time
 const int   daylightOffset_sec = 0;
 
 // ============================================================================
-// 5. HELPER FUNCTIONS
+// 5. BUILT-IN STANDALONE DHT DRIVER (NO ADAFRUIT LIBRARY NEEDED)
+// ============================================================================
+bool readDHTDirect(int pin, int dhtType, float &temperature, float &humidity) {
+  uint8_t data[5] = {0, 0, 0, 0, 0};
+
+  // 1. Send start signal
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, HIGH);
+  delay(10);
+  digitalWrite(pin, LOW);
+  delay(dhtType == 11 ? 20 : 2); // DHT11 needs ≥18ms LOW; DHT22 needs ~1-2ms
+  digitalWrite(pin, HIGH);
+  delayMicroseconds(30);
+
+  // Switch to input with pullup to read response
+  pinMode(pin, INPUT_PULLUP);
+
+  // 2. Wait for sensor response: 80us LOW then 80us HIGH
+  unsigned long timeout = micros();
+  while (digitalRead(pin) == HIGH) {
+    if (micros() - timeout > 100) return false;
+  }
+  timeout = micros();
+  while (digitalRead(pin) == LOW) {
+    if (micros() - timeout > 100) return false;
+  }
+  timeout = micros();
+  while (digitalRead(pin) == HIGH) {
+    if (micros() - timeout > 100) return false;
+  }
+
+  // 3. Read 40 data bits (5 bytes) with interrupt protection
+  noInterrupts();
+  for (int i = 0; i < 40; i++) {
+    // Wait for the 50us LOW pulse preceding each bit
+    timeout = micros();
+    while (digitalRead(pin) == LOW) {
+      if (micros() - timeout > 100) {
+        interrupts();
+        return false;
+      }
+    }
+    // Measure HIGH duration (26-28us = '0', 70us = '1')
+    unsigned long startHigh = micros();
+    timeout = micros();
+    while (digitalRead(pin) == HIGH) {
+      if (micros() - timeout > 120) {
+        interrupts();
+        return false;
+      }
+    }
+    unsigned long duration = micros() - startHigh;
+
+    // Threshold ~40us distinguishes bit 0 from bit 1
+    if (duration > 40) {
+      data[i / 8] |= (1 << (7 - (i % 8)));
+    }
+  }
+  interrupts();
+
+  // 4. Verify checksum
+  uint8_t sum = (data[0] + data[1] + data[2] + data[3]) & 0xFF;
+  if (data[4] != sum) {
+    return false;
+  }
+
+  // 5. Decode values
+  if (dhtType == 11) {
+    humidity = (float)data[0];
+    temperature = (float)data[2];
+    if (data[3] & 0x80) temperature = -temperature;
+  } else { // DHT22 / AM2302
+    humidity = ((float)((data[0] << 8) | data[1])) * 0.1;
+    float tempRaw = ((float)(((data[2] & 0x7F) << 8) | data[3])) * 0.1;
+    if (data[2] & 0x80) tempRaw = -tempRaw;
+    temperature = tempRaw;
+  }
+
+  return (humidity >= 0.0 && humidity <= 100.0 && temperature >= -40.0 && temperature <= 80.0);
+}
+
+// ============================================================================
+// 6. SENSOR HELPER FUNCTIONS
 // ============================================================================
 
 // Average multiple analog reads to filter high-frequency ADC noise
@@ -147,7 +224,6 @@ bool updateRain(int rainRaw) {
 float computeSoilMoisturePercent(int soilRaw) {
   float percent = 0.0;
   if (SOIL_DRY_RAW > SOIL_WET_RAW) {
-    // Normal capacitive inverted curve (dry raw > wet raw)
     percent = (float)(SOIL_DRY_RAW - soilRaw) / (float)(SOIL_DRY_RAW - SOIL_WET_RAW) * 100.0;
   } else {
     percent = (float)(soilRaw - SOIL_DRY_RAW) / (float)(SOIL_WET_RAW - SOIL_DRY_RAW) * 100.0;
@@ -188,7 +264,6 @@ bool connectWiFi() {
   Serial.print("[WiFi] Assigned IP: ");
   Serial.println(WiFi.localIP());
 
-  // Initialize NTP time sync
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   Serial.println("[NTP] Time synchronization requested");
 
@@ -196,30 +271,27 @@ bool connectWiFi() {
   return true;
 }
 
-// POST Telemetry payload directly to API
+// POST Telemetry payload directly to API (Standard zero-dependency String format)
 bool postTelemetry(float temperature, float humidity, float soilPct, int soilRaw, int soilMv, int rainState, int rainRaw) {
   String timestamp = getIso8601Time();
 
-  // Construct JSON Document
-  JsonDocument doc;
-  doc["device_id"]         = DEVICE_ID;
+  // Build clean JSON payload
+  String jsonPayload = "{";
+  jsonPayload += "\"device_id\":\"" + String(DEVICE_ID) + "\"";
   if (timestamp.length() > 0) {
-    doc["captured_at"]     = timestamp;
+    jsonPayload += ",\"captured_at\":\"" + timestamp + "\"";
   }
-  doc["temperature_C"]     = round(temperature * 10.0) / 10.0;
-  doc["humidity_%"]        = round(humidity * 10.0) / 10.0;
-  doc["soil_moisture_%"]   = round(soilPct * 10.0) / 10.0;
-  doc["soil_raw"]          = soilRaw;
-  doc["soil_mv"]           = soilMv;
-  doc["rain"]              = rainState;
-  doc["rain_raw"]          = rainRaw;
-
-  String jsonPayload;
-  serializeJson(doc, jsonPayload);
+  jsonPayload += ",\"temperature_C\":" + String(temperature, 1);
+  jsonPayload += ",\"humidity_%\":" + String(humidity, 1);
+  jsonPayload += ",\"soil_moisture_%\":" + String(soilPct, 1);
+  jsonPayload += ",\"soil_raw\":" + String(soilRaw);
+  jsonPayload += ",\"soil_mv\":" + String(soilMv);
+  jsonPayload += ",\"rain\":" + String(rainState);
+  jsonPayload += ",\"rain_raw\":" + String(rainRaw);
+  jsonPayload += "}";
 
   String url = String(API_BASE_URL) + "/api/sensors/reading";
 
-  // If using HTTPS, disable SSL cert verification for flexible edge devices
   if (url.startsWith("https://")) {
     wifiClient.setInsecure();
   }
@@ -234,7 +306,6 @@ bool postTelemetry(float temperature, float humidity, float soilPct, int soilRaw
   int httpCode = http.POST(jsonPayload);
 
   if (httpCode == 201 || httpCode == 200) {
-    String resp = http.getString();
     Serial.printf("[HTTP] SUCCESS (%d): Server accepted telemetry\n", httpCode);
     http.end();
     return true;
@@ -246,14 +317,14 @@ bool postTelemetry(float temperature, float humidity, float soilPct, int soilRaw
 }
 
 // ============================================================================
-// 6. SETUP
+// 7. SETUP
 // ============================================================================
 void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(1000);
 
   Serial.println("\n=============================================");
-  Serial.println("   HydroWise ESP32 Cloud Sensor Node v5.2   ");
+  Serial.println("HydroWise ESP32 Node (Zero-Dependency Edition)");
   Serial.println("=============================================");
 
   pinMode(STATUS_LED_PIN, OUTPUT);
@@ -264,9 +335,7 @@ void setup() {
   analogSetPinAttenuation(SOIL_PIN, ADC_11db);
   analogSetPinAttenuation(RAIN_PIN, ADC_11db);
 
-  // Initialize DHT sensor
-  dht.begin();
-  delay(1500);
+  delay(1000);
 
   // Take dry baseline for rain sensor (keep sensor dry during startup)
   rainBaseline = readAnalogAvg(RAIN_PIN);
@@ -282,7 +351,7 @@ void setup() {
 }
 
 // ============================================================================
-// 7. MAIN LOOP
+// 8. MAIN LOOP
 // ============================================================================
 void loop() {
   // 1. Maintain Wi-Fi connectivity
@@ -294,23 +363,19 @@ void loop() {
     wifiConnected = true;
   }
 
-  // 2. Read DHT Temperature and Humidity with retry
+  // 2. Read DHT Temperature and Humidity with retry (using built-in bitbang reader)
   float temperature = NAN, humidity = NAN;
   for (int attempt = 0; attempt < 3; attempt++) {
-    temperature = dht.readTemperature();
-    humidity    = dht.readHumidity();
-    if (!isnan(temperature) && !isnan(humidity)) break;
+    if (readDHTDirect(DHT_PIN, DHT_TYPE, temperature, humidity)) {
+      break;
+    }
     delay(400);
   }
 
-  bool dhtOk = !isnan(temperature) && !isnan(humidity)
-               && temperature >= -10.0 && temperature <= 60.0
-               && humidity >= 0.0 && humidity <= 100.0;
-
-  if (!dhtOk) {
-    temperature = 28.5; // Fallback safe ambient value if wire is loose
+  if (isnan(temperature) || isnan(humidity)) {
+    temperature = 28.5; // Fallback safe ambient value if wire is unplugged
     humidity    = 55.0;
-    Serial.println("[WARN] DHT sensor read error - using fallback");
+    Serial.println("[WARN] DHT read error (check pin 4 wire) - using fallback value");
   }
 
   // 3. Read Soil Moisture (Analog + Voltage)
@@ -338,7 +403,6 @@ void loop() {
     if (success) {
       digitalWrite(STATUS_LED_PIN, HIGH);
     } else {
-      // Blink LED to indicate transmit error
       for (int i = 0; i < 4; i++) {
         digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
         delay(100);
