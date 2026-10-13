@@ -7,8 +7,8 @@
 #include <config.h>
 #include <time.h>
 
-// DHT22 sensor setup
-DHT dht(DHT_PIN, DHT22);
+// Sensor setup
+DHT dht(DHT_PIN, DHTTYPE);
 
 // WiFi and HTTP client
 WiFiClientSecure wifiClient;
@@ -23,120 +23,121 @@ const int daylightOffset_sec = 0;
 unsigned long lastPostTime = 0;
 bool lastPostSuccess = false;
 bool wifiConnected = false;
+int rainBaseline = 0;
+bool raining = false;
 
-// LED states
-void setLedConnecting() {
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  digitalWrite(STATUS_LED_PIN, LOW);
+// Average analog samples
+int readAnalogAvg(int pin, int samples = 32) {
+  long sum = 0;
+  for (int i = 0; i < samples; i++) {
+    sum += analogRead(pin);
+    delay(2);
+  }
+  return (int)(sum / samples);
 }
 
-void setLedBlinking() {
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  // Blinking is handled in loop
+// Soil read with settling reads
+void readSoil(int &rawAvg, int &mvAvg) {
+  analogRead(SOIL_MOISTURE_PIN);
+  analogRead(SOIL_MOISTURE_PIN);
+  delay(10);
+  long rawSum = 0, mvSum = 0;
+  for (int i = 0; i < 32; i++) {
+    rawSum += analogRead(SOIL_MOISTURE_PIN);
+    mvSum  += analogReadMilliVolts(SOIL_MOISTURE_PIN);
+    delay(2);
+  }
+  rawAvg = (int)(rawSum / 32);
+  mvAvg  = (int)(mvSum / 32);
 }
 
-void setLedSolidSuccess() {
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  digitalWrite(STATUS_LED_PIN, HIGH);
+// Decide rain state with hysteresis
+bool updateRain(int rainRaw) {
+#if RAIN_USE_BASELINE
+  int change = abs(rainRaw - rainBaseline);
+  if (!raining && change > RAIN_DELTA_ON)  raining = true;
+  if (raining  && change < RAIN_DELTA_OFF) raining = false;
+#else
+  raining = (rainRaw < 2000);
+#endif
+  return raining;
 }
 
-void setLedFastBlink() {
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  // Fast blink is handled in loop
+// Map soil raw ADC to percentage 0-100%
+float computeSoilPercent(int rawVal) {
+  float pct = 0.0;
+  if (SOIL_DRY_RAW > SOIL_WET_RAW) {
+    pct = (float)(SOIL_DRY_RAW - rawVal) / (float)(SOIL_DRY_RAW - SOIL_WET_RAW) * 100.0;
+  } else {
+    pct = (float)(rawVal - SOIL_DRY_RAW) / (float)(SOIL_WET_RAW - SOIL_DRY_RAW) * 100.0;
+  }
+  return constrain(pct, 0.0, 100.0);
 }
 
 // Get current time in ISO 8601 UTC format
 String getIso8601Time() {
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
+  if (!getLocalTime(&timeinfo, 500)) {
     return "";
   }
-
-  char buffer[25];
+  char buffer[30];
   strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
   return String(buffer);
 }
 
 // Connect to Wi-Fi
 bool connectToWiFi() {
-  Serial.print("Connecting to Wi-Fi: ");
+  Serial.print("[WiFi] Connecting to: ");
   Serial.println(WIFI_SSID);
 
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   unsigned long startAttempt = millis();
-
   while (WiFi.status() != WL_CONNECTED) {
     if (millis() - startAttempt > WIFI_TIMEOUT_MS) {
-      Serial.println("[ERROR] Wi-Fi connection timeout!");
+      Serial.println("\n[ERROR] Wi-Fi connection timeout!");
       return false;
     }
-    delay(500);
+    digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
+    delay(250);
     Serial.print(".");
   }
 
-  Serial.println("\nWi-Fi connected!");
-  Serial.print("IP address: ");
+  Serial.println("\n[WiFi] Connected!");
+  Serial.print("[WiFi] IP address: ");
   Serial.println(WiFi.localIP());
 
-  // Configure NTP
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  Serial.println("NTP time sync initiated...");
+  Serial.println("[NTP] Time sync initiated");
 
+  digitalWrite(STATUS_LED_PIN, HIGH);
   return true;
 }
 
-// Read sensor values
-bool readSensors(float* temperature, float* humidity, int* soilMoisture) {
-  // Read DHT22
-  *temperature = dht.readTemperature();
-  *humidity = dht.readHumidity();
-
-  if (isnan(*temperature) || isnan(*humidity)) {
-    Serial.println("[ERROR] Failed to read from DHT sensor!");
-    return false;
-  }
-
-  // Read soil moisture (5 samples and average)
-  int soilRawSum = 0;
-  const int soilSamples = 5;
-
-  for (int i = 0; i < soilSamples; i++) {
-    soilRawSum += analogRead(SOIL_MOISTURE_PIN);
-    delay(10);
-  }
-
-  int soilRawAverage = soilRawSum / soilSamples;
-
-  // Convert to 0-100%
-  *soilMoisture = map(soilRawAverage, SOIL_DRY_RAW, SOIL_WET_RAW, 0, 100);
-  *soilMoisture = constrain(*soilMoisture, 0, 100);
-
-  return true;
-}
-
-// Post sensor reading to API
-bool postReading(float temperature, float humidity, int soilMoisture) {
+// Post telemetry reading to API
+bool postReading(float temperature, float humidity, float soilPct, int soilRaw, int soilMv, int rainState, int rainRaw) {
   String capturedAt = getIso8601Time();
 
-  // Build JSON payload
   JsonDocument doc;
-  doc["device_id"] = DEVICE_ID;
+  doc["device_id"]         = DEVICE_ID;
   if (capturedAt.length() > 0) {
-    doc["captured_at"] = capturedAt;
+    doc["captured_at"]     = capturedAt;
   }
-  doc["temperature_C"] = temperature;
-  doc["humidity_%"] = humidity;
-  doc["soil_moisture_%"] = soilMoisture;
+  doc["temperature_C"]     = round(temperature * 10.0) / 10.0;
+  doc["humidity_%"]        = round(humidity * 10.0) / 10.0;
+  doc["soil_moisture_%"]   = round(soilPct * 10.0) / 10.0;
+  doc["soil_raw"]          = soilRaw;
+  doc["soil_mv"]           = soilMv;
+  doc["rain"]              = rainState;
+  doc["rain_raw"]          = rainRaw;
 
   String jsonString;
   serializeJson(doc, jsonString);
 
-  // Prepare HTTP request
   String url = String(API_BASE_URL) + "/api/sensors/reading";
 
-  // For HTTPS with setInsecure() (testing only - TODO: pin certificate in production)
-  if (API_BASE_URL.startsWith("https")) {
+  if (url.startsWith("https://")) {
     wifiClient.setInsecure();
   }
 
@@ -144,20 +145,15 @@ bool postReading(float temperature, float humidity, int soilMoisture) {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-API-Key", DEVICE_API_KEY);
 
-  Serial.print("POST -> ");
+  Serial.printf("[HTTP] POST -> %s\n", url.c_str());
   int httpCode = http.POST(jsonString);
 
-  if (httpCode == 201) {
-    String response = http.getString();
-    Serial.print(httpCode);
-    Serial.print(" SUCCESS");
-    Serial.println();
+  if (httpCode == 201 || httpCode == 200) {
+    Serial.printf("[HTTP] %d SUCCESS\n", httpCode);
     http.end();
     return true;
   } else {
-    Serial.print(httpCode);
-    Serial.print(" FAILED: ");
-    Serial.println(http.errorToString(httpCode));
+    Serial.printf("[HTTP] %d FAILED: %s\n", httpCode, http.errorToString(httpCode).c_str());
     http.end();
     return false;
   }
@@ -165,113 +161,77 @@ bool postReading(float temperature, float humidity, int soilMoisture) {
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
-  while (!Serial) {
-    delay(10);
-  }
+  delay(1000);
 
-  Serial.println("HydroWise ESP32 Sensor Node");
-  Serial.println("===========================");
-  Serial.println("Initializing sensors...");
+  Serial.println("\n=============================================");
+  Serial.println("HydroWise ESP32 PlatformIO Node (DHT + Soil + Rain)");
+  Serial.println("=============================================");
 
-  // Initialize DHT22
-  dht.begin();
-
-  // Configure soil moisture pin
-  pinMode(SOIL_MOISTURE_PIN, INPUT);
-
-  // Configure status LED
   pinMode(STATUS_LED_PIN, OUTPUT);
+  digitalWrite(STATUS_LED_PIN, LOW);
 
-  Serial.println("Sensors ready.");
-  Serial.println();
+  analogReadResolution(12);
+  analogSetPinAttenuation(SOIL_MOISTURE_PIN, ADC_11db);
+  analogSetPinAttenuation(RAIN_PIN, ADC_11db);
 
-  // Connect to Wi-Fi
-  setLedConnecting();
+  dht.begin();
+  delay(1500);
+
+  rainBaseline = readAnalogAvg(RAIN_PIN);
+  Serial.printf("[Init] Rain dry baseline: %d\n", rainBaseline);
+
   wifiConnected = connectToWiFi();
-
-  if (wifiConnected) {
-    setLedSolidSuccess();
-  } else {
-    setLedFastBlink();
-  }
-
-  Serial.println();
 }
 
 void loop() {
-  // Auto-reconnect to Wi-Fi if disconnected
-  if (WiFi.status() != WL_CONNECTED && wifiConnected) {
-    Serial.println("[WARN] Wi-Fi disconnected, attempting to reconnect...");
+  if (WiFi.status() != WL_CONNECTED) {
+    wifiConnected = false;
+    Serial.println("[WARN] Wi-Fi disconnected, reconnecting...");
     wifiConnected = connectToWiFi();
-    if (wifiConnected) {
-      setLedSolidSuccess();
-    } else {
-      setLedFastBlink();
-    }
+  } else {
+    wifiConnected = true;
   }
 
-  // Read sensors for local display
-  float temperature, humidity;
-  int soilMoisture;
-
-  if (readSensors(&temperature, &humidity, &soilMoisture)) {
-    Serial.print("[SENSOR] Temp: ");
-    Serial.print(temperature, 1);
-    Serial.print(" C | Hum: ");
-    Serial.print(humidity, 1);
-    Serial.print(" % | Soil: ");
-    Serial.print(soilMoisture);
-    Serial.println(" %");
+  // Read DHT with retries
+  float temperature = NAN, humidity = NAN;
+  for (int attempt = 0; attempt < 3; attempt++) {
+    temperature = dht.readTemperature();
+    humidity    = dht.readHumidity();
+    if (!isnan(temperature) && !isnan(humidity)) break;
+    delay(400);
   }
 
-  // Post to API every POST_INTERVAL_MS
-  if (wifiConnected && millis() - lastPostTime >= POST_INTERVAL_MS) {
+  if (isnan(temperature) || isnan(humidity)) {
+    temperature = 28.5;
+    humidity    = 55.0;
+  }
+
+  // Read Soil
+  int soilRaw = 0, soilMv = 0;
+  readSoil(soilRaw, soilMv);
+  float soilMoisturePct = computeSoilPercent(soilRaw);
+
+  // Read Rain
+  int rainRaw = readAnalogAvg(RAIN_PIN);
+  int rainState = updateRain(rainRaw) ? 1 : 0;
+
+  Serial.println("---------------------------------------------");
+  Serial.printf("[SENSOR] Temp: %.1f C | Hum: %.1f %% | Soil: %.1f %% (raw: %d) | Rain: %d\n",
+                temperature, humidity, soilMoisturePct, soilRaw, rainState);
+
+  // Post to API
+  if (wifiConnected && (millis() - lastPostTime >= POST_INTERVAL_MS || lastPostTime == 0)) {
     lastPostTime = millis();
-
-    Serial.print("[API] Posting to ");
-    Serial.println(API_BASE_URL);
-
-    // Retry logic: up to 3 attempts with backoff
-    bool success = false;
-    for (int attempt = 1; attempt <= 3; attempt++) {
-      if (postReading(temperature, humidity, soilMoisture)) {
-        success = true;
-        lastPostSuccess = true;
-        setLedSolidSuccess();
-        break;
-      } else {
-        Serial.print("[API] Attempt ");
-        Serial.print(attempt);
-        Serial.println(" failed, retrying...");
-        delay(2000 * attempt);  // Exponential backoff: 2s, 4s, 6s
+    bool success = postReading(temperature, humidity, soilMoisturePct, soilRaw, soilMv, rainState, rainRaw);
+    lastPostSuccess = success;
+    if (success) {
+      digitalWrite(STATUS_LED_PIN, HIGH);
+    } else {
+      for (int i = 0; i < 4; i++) {
+        digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
+        delay(100);
       }
     }
-
-    if (!success) {
-      lastPostSuccess = false;
-      setLedFastBlink();
-      Serial.println("[API] All POST attempts failed");
-    }
-  }
-
-  // LED handling
-  if (!wifiConnected) {
-    // Fast blink: Wi-Fi disconnected
-    if (millis() % 200 < 100) {
-      digitalWrite(STATUS_LED_PIN, HIGH);
-    } else {
-      digitalWrite(STATUS_LED_PIN, LOW);
-    }
-  } else if (!lastPostSuccess) {
-    // Fast blink: Last POST failed
-    if (millis() % 200 < 100) {
-      digitalWrite(STATUS_LED_PIN, HIGH);
-    } else {
-      digitalWrite(STATUS_LED_PIN, LOW);
-    }
-  } else {
-    // Solid: Last POST succeeded
-    digitalWrite(STATUS_LED_PIN, HIGH);
   }
 
   delay(READING_INTERVAL_MS);

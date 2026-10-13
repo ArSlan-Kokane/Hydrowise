@@ -128,11 +128,20 @@ class SqliteTelemetryStore:
                     temperature_C REAL NOT NULL,
                     humidity_pct REAL NOT NULL,
                     soil_moisture_pct REAL NOT NULL,
+                    soil_raw INTEGER,
+                    soil_mv INTEGER,
+                    rain INTEGER,
+                    rain_raw INTEGER,
                     captured_at TEXT NOT NULL,
                     received_at TEXT NOT NULL
                 );
                 """
             )
+            for col, col_type in [("soil_raw", "INTEGER"), ("soil_mv", "INTEGER"), ("rain", "INTEGER"), ("rain_raw", "INTEGER")]:
+                try:
+                    conn.execute(f"ALTER TABLE sensor_readings ADD COLUMN {col} {col_type};")
+                except sqlite3.OperationalError:
+                    pass
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_sensor_readings_captured_at
@@ -156,14 +165,19 @@ class SqliteTelemetryStore:
             conn.execute(
                 """
                 INSERT INTO sensor_readings (
-                    device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
-                ) VALUES (?, ?, ?, ?, ?, ?);
+                    device_id, temperature_C, humidity_pct, soil_moisture_pct,
+                    soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     reading.device_id,
                     reading.temperature_C,
                     reading.humidity_percent,
                     reading.soil_moisture_percent,
+                    reading.soil_raw,
+                    reading.soil_mv,
+                    reading.rain,
+                    reading.rain_raw,
                     cap_str,
                     rec_str,
                 ),
@@ -175,7 +189,8 @@ class SqliteTelemetryStore:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct,
+                       soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
                 FROM sensor_readings
                 ORDER BY id DESC
                 LIMIT 1;
@@ -191,7 +206,8 @@ class SqliteTelemetryStore:
             cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
             cursor = conn.execute(
                 """
-                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct,
+                       soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
                 FROM sensor_readings
                 WHERE captured_at >= ?
                 ORDER BY captured_at DESC
@@ -203,7 +219,8 @@ class SqliteTelemetryStore:
             if not rows:
                 cursor = conn.execute(
                     """
-                    SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct, captured_at, received_at
+                    SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct,
+                           soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
                     FROM sensor_readings
                     ORDER BY id DESC
                     LIMIT ?;
@@ -216,11 +233,21 @@ class SqliteTelemetryStore:
     @staticmethod
     def _row_to_model(row: sqlite3.Row) -> SensorReading:
         rec_val = row["received_at"]
+        keys = row.keys() if hasattr(row, "keys") else []
+        soil_raw = row["soil_raw"] if "soil_raw" in keys else None
+        soil_mv = row["soil_mv"] if "soil_mv" in keys else None
+        rain = row["rain"] if "rain" in keys else None
+        rain_raw = row["rain_raw"] if "rain_raw" in keys else None
         return SensorReading(
             device_id=row["device_id"],
             temperature_C=row["temperature_C"],
             humidity_percent=row["humidity_pct"],
             soil_moisture_percent=row["soil_moisture_pct"],
+            soil_raw=soil_raw,
+            soil_mv=soil_mv,
+            rain=rain,
+            rain_raw=rain_raw,
+            rain_detected=bool(rain == 1) if rain is not None else None,
             captured_at=datetime.fromisoformat(row["captured_at"]),
             received_at=datetime.fromisoformat(rec_val) if rec_val else None,
         )
@@ -393,11 +420,18 @@ class IngestionService:
         return provided_secret is not None and provided_secret == expected
 
     def _is_fresh(self, reading: SensorReading) -> bool:
-        """Return True when the reading is within the freshness window."""
+        """Return True when the reading is fresh, or adopt server timestamp if uninitialized."""
         age_seconds = (
             datetime.now(timezone.utc) - reading.captured_at
         ).total_seconds()
-        return age_seconds <= self._settings.sensor_freshness_seconds
+        if -120 <= age_seconds <= self._settings.sensor_freshness_seconds:
+            return True
+        # If ESP32 timestamp is uninitialized (e.g. 1970 epoch or out of sync), adopt server time
+        if reading.captured_at.year < 2024 or age_seconds > self._settings.sensor_freshness_seconds:
+            logger.info("Device %s timestamp (%s) unsynced; adopting server UTC timestamp", reading.device_id, reading.captured_at)
+            reading.captured_at = datetime.now(timezone.utc)
+            return True
+        return False
 
     async def ingest(
         self,

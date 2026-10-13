@@ -11,14 +11,19 @@ class SensorReading(BaseModel):
     temperature_C: float = Field(ge=-10.0, le=60.0)
     humidity_percent: float = Field(alias="humidity_%", ge=0.0, le=100.0)
     soil_moisture_percent: float = Field(alias="soil_moisture_%", ge=0.0, le=100.0)
+    soil_raw: int | None = None
+    soil_mv: int | None = None
+    rain: int | None = None
+    rain_raw: int | None = None
+    rain_detected: bool | None = None
     received_at: datetime | None = None
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "allow"}
 
     @field_validator("captured_at", mode="before")
     @classmethod
     def default_captured_at_if_none(cls, v):
-        if v is None:
+        if v is None or v == "":
             return datetime.now(timezone.utc)
         return v
 

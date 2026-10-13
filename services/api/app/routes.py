@@ -54,14 +54,27 @@ def health(settings: Settings = Depends(settings_dep)) -> dict:
 
 
 @router.get("/system/status")
-def system_status(settings: Settings = Depends(settings_dep)) -> dict:
+async def system_status(
+    settings: Settings = Depends(settings_dep),
+    store: TelemetryStore = Depends(get_telemetry_store),
+) -> dict:
+    latest = await store.latest()
+    esp32_status = "simulated"
+    if latest:
+        ref_time = latest.received_at or latest.captured_at
+        age = (datetime.now(timezone.utc) - ref_time).total_seconds()
+        if age <= 300:
+            esp32_status = f"online (live: {latest.device_id})"
+        else:
+            esp32_status = f"standby (last seen {int(age)}s ago)"
+
     return {
         "checked_at": datetime.now(timezone.utc),
         "api": "online",
         "weather_provider": "mock" if settings.use_mock_weather else "live",
-        "esp32": "simulated",  # TODO: update when live telemetry is wired
+        "esp32": esp32_status,
         "actuation": "recommendation-only",
-        "ml_adapter": "mock" if settings.use_mock_ml else f"sklearn@{settings.model_version}",
+        "ml_adapter": "mock" if settings.use_mock_ml else f"AMHOE@{settings.model_version}",
     }
 
 

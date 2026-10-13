@@ -135,12 +135,16 @@ export function RealTimeMap({
               const moisture = Math.max(15, Math.min(85, (baseSensor["soil_moisture_%"] || 45) + offsets[i]));
               const temp = (baseSensor.temperature_C || 31) + (i * 0.4 - 0.8);
               const hum = Math.max(30, Math.min(95, (baseSensor["humidity_%"] || 60) - i * 2.5));
+              const isLiveNode = i === 0 && baseSensor.device_id;
               return {
                 ...station,
+                name: isLiveNode ? `Station (${baseSensor.device_id})` : station.name,
                 soil_moisture_pct: Number(moisture.toFixed(1)),
                 temperature_C: Number(temp.toFixed(1)),
                 humidity_pct: Number(hum.toFixed(1)),
-                lastUpdated: "Live telemetry sync",
+                lastUpdated: isLiveNode && baseSensor.rain === 1
+                  ? "🌧️ Rain Detected (Active)"
+                  : "Live telemetry sync",
               };
             })
           );
@@ -151,7 +155,7 @@ export function RealTimeMap({
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 30000);
+    const interval = setInterval(fetchTelemetry, 5000);
     return () => clearInterval(interval);
   }, []);
 

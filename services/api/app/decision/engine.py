@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from ..config import Settings
 from ..ingestion import IngestionService, TelemetryStore
-from ..models.schemas import IrrigationDecision, SensorReading, WeatherSnapshot
+from ..models.schemas import IrrigationDecision, MLResult, SensorReading, WeatherSnapshot
 from ..providers import WeatherProvider
 from .gate import GateResult
 from .ml_adapter import MLAdapter
@@ -105,6 +105,21 @@ class DecisionEngine:
                 from ..mock.data_generator import sensor_reading as mock_sensor
                 reading = mock_sensor()
                 logger.debug("Using fallback sensor reading (no stored telemetry yet)")
+
+        # Physical Rain Sensor check (from ESP32 field telemetry)
+        if reading is not None and getattr(reading, "rain", 0) == 1:
+            logger.info("Physical rain detected on device %s -> overriding recommendation to DO_NOT_IRRIGATE", getattr(reading, "device_id", "unknown"))
+            safety_status = apply_safety("DO_NOT_IRRIGATE")
+            return IrrigationDecision(
+                decided_at=datetime.now(timezone.utc),
+                recommendation="DO_NOT_IRRIGATE",
+                weather_gate=gate_result.gate,
+                ml_result=MLResult(
+                    recommendation="DO_NOT_IRRIGATE",
+                    model_version="rain-sensor-override",
+                ),
+                safety_status=safety_status,
+            )
 
         ml_result = await self._ml.predict(reading)
         logger.info("ML prediction: %s", ml_result.recommendation)
