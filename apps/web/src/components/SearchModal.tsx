@@ -14,15 +14,13 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
   if (!isOpen) return null;
 
   const mockEntities = [
-    { type: "well", id: "W-014", name: "Well W-014 (Bhairavpur)", detail: "Depth 8.4m · Drinking + Irrigation" },
-    { type: "well", id: "W-022", name: "Well W-022 (Khera)", detail: "Depth 11.8m · Irrigation Watch" },
-    { type: "well", id: "W-031", name: "Well W-031 (South Ward)", detail: "Depth 16.2m · Stressed Drawdown" },
-    { type: "well", id: "W-044", name: "Well W-044 (Chandpura)", detail: "Depth 9.1m · Stable Drinking Reserve" },
-    { type: "well", id: "W-057", name: "Well W-057 (Rampur)", detail: "Depth 13.6m · Agricultural Watch" },
-    { type: "well", id: "W-068", name: "Well W-068 (Sultanpur)", detail: "Depth 7.9m · High Recharge Zone" },
-    { type: "village", id: "Bhairavpur", name: "Bhairavpur Village Cluster", detail: "Pop: 2,400 · Handpump yield alert" },
-    { type: "village", id: "Khera", name: "Khera Ward 2", detail: "Pop: 1,800 · Canal tail-end feeder" },
-    { type: "alert", id: "alert-1", name: "South-east Aquifer Drawdown Watch", detail: "Telemetry threshold crossed at 08:30" },
+    { type: "sensor", id: "sensor-1", name: "Sensor: Sangli Central", detail: "16.85°N, 74.58°E · Real-time telemetry" },
+    { type: "sensor", id: "sensor-2", name: "Sensor: Miraj North", detail: "16.88°N, 74.55°E · Real-time telemetry" },
+    { type: "sensor", id: "sensor-3", name: "Sensor: Vita East", detail: "16.82°N, 74.62°E · Real-time telemetry" },
+    { type: "sensor", id: "sensor-4", name: "Sensor: Kundal South", detail: "16.78°N, 74.65°E · Real-time telemetry" },
+    { type: "sensor", id: "sensor-5", name: "Sensor: Jath West", detail: "16.92°N, 74.48°E · Real-time telemetry" },
+    { type: "location", id: "sangli", name: "Sangli, Maharashtra", detail: "District headquarters · Monitoring region" },
+    { type: "alert", id: "alert-1", name: "Sensor Network Status", detail: "All sensors operational · Data flowing" },
   ];
 
   const filtered = query.trim()
@@ -41,8 +39,8 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search wells, villages, alerts..."
-        aria-label="Search wells, villages, and alerts"
+        placeholder="Search sensors, locations, alerts..."
+        aria-label="Search sensors, locations, and alerts"
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();
         }}
@@ -81,9 +79,9 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
               <button
                 key={item.id}
                 onClick={() => {
-                  if (item.type === "well") {
+                  if (item.type === "sensor") {
                     onSelectWell(item.id);
-                    onNotify(`Focused on telemetry point ${item.id}`);
+                    onNotify(`Focused on sensor ${item.id}`);
                   } else {
                     onNotify(`Filtered view for ${item.name}`);
                   }
@@ -108,7 +106,7 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
                       fontFamily: "var(--font-mono)",
                       fontSize: "9px",
                       textTransform: "uppercase",
-                      color: item.type === "well" ? "var(--aqua-primary)" : item.type === "alert" ? "var(--warning-primary)" : "var(--green-bright)",
+                      color: item.type === "sensor" ? "var(--aqua-primary)" : item.type === "alert" ? "var(--warning-primary)" : "var(--green-bright)",
                       background: "rgba(255,255,255,0.06)",
                       padding: "2px 5px",
                       borderRadius: "4px",

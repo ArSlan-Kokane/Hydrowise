@@ -1492,6 +1492,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   align-items: stretch;
 }
 
+/* Real-time Map Container */
+.realtime-map-container {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.realtime-leaflet-map {
+  z-index: 1;
+}
+
 /* Field Conditions Workspace */
 .field-conditions-workspace {
   display: grid;
@@ -2214,6 +2226,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 /* Larger map in dedicated workspace */
 .groundwater-map-workspace .map-canvas-container {
+  height: 520px;
+}
+
+.groundwater-map-workspace .realtime-map-container {
   height: 520px;
 }
 
@@ -3344,6 +3360,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     height: 320px;
   }
   .groundwater-map-workspace .map-canvas-container {
+    height: 400px;
+  }
+  .groundwater-map-workspace .realtime-map-container {
     height: 400px;
   }
   .section-header {

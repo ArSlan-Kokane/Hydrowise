@@ -26,7 +26,7 @@ export function Sidebar({
 }: SidebarProps) {
   const nav: [string, string][] = [
     ["overview", "Overview"],
-    ["map", "Groundwater map"],
+    ["map", "Real-time map"],
     ["field", "Field conditions"],
     ["alerts", "Community alerts"],
     ["council", "Local administration"],
@@ -44,7 +44,7 @@ export function Sidebar({
 
     const sectionIdMap: { [key: string]: string } = {
       "Overview": "section-overview",
-      "Groundwater map": "section-groundwater",
+      "Real-time map": "section-realtime-map",
       "Field conditions": "section-field-conditions",
       "Community alerts": "section-community-alerts",
     };

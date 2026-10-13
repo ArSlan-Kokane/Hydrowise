@@ -3,7 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { KpiRow } from "./components/KpiRow";
-import { GroundwaterMap, WellData } from "./components/GroundwaterMap";
+import { RealTimeMap } from "./components/RealTimeMap";
 import { RiskPicture } from "./components/RiskPicture";
 import { AquiferMovement } from "./components/AquiferMovement";
 import { CommunitySignals, CommunitySignal } from "./components/CommunitySignals";
@@ -16,6 +16,8 @@ import { Icon } from "./components/Icons";
 import { IrrigationDecisionStation } from "./components/IrrigationDecisionStation";
 import { apiClient } from "./api/client";
 
+type WellData = never;
+
 const initialScenarios = {
   normal: { label: "Current conditions", rain: 18, level: 61, risk: "Watch", note: "Water demand is rising in the western fields." },
   heat: { label: "Heatwave week", rain: 4, level: 43, risk: "High", note: "Evaporation pressure is spreading across the block." },
@@ -23,14 +25,7 @@ const initialScenarios = {
   stress: { label: "Extraction stress", rain: 9, level: 27, risk: "Critical", note: "Well drawdown and crop demand are converging." },
 } as const;
 
-const initialWells: WellData[] = [
-  { id: "W-014", x: 27, y: 34, level: "Good", value: "8.4 m", color: "good", village: "Bhairavpur", population: "2,400", usage: "Drinking + Irrigation" },
-  { id: "W-022", x: 46, y: 27, level: "Watch", value: "11.8 m", color: "watch", village: "Khera", population: "1,800", usage: "Irrigation" },
-  { id: "W-031", x: 61, y: 51, level: "Stressed", value: "16.2 m", color: "risk", village: "South Ward", population: "3,200", usage: "Drinking + Industry" },
-  { id: "W-044", x: 76, y: 38, level: "Good", value: "9.1 m", color: "good", village: "Chandpura", population: "1,600", usage: "Drinking" },
-  { id: "W-057", x: 72, y: 73, level: "Watch", value: "13.6 m", color: "watch", village: "Rampur", population: "2,100", usage: "Irrigation" },
-  { id: "W-068", x: 34, y: 72, level: "Good", value: "7.9 m", color: "good", village: "Sultanpur", population: "1,900", usage: "Drinking + Irrigation" },
-];
+
 
 const initialSignals: CommunitySignal[] = [
   {
@@ -107,12 +102,9 @@ export function App() {
   const [adminOpen, setAdminOpen] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<string | null>(null);
 
-  const [mapZoom, setMapZoom] = useState(1);
-  const [layers, setLayers] = useState(true);
-  const [satellite, setSatellite] = useState(false);
   const [period, setPeriod] = useState(30);
   const [notice, setNotice] = useState("");
-  const [region, setRegion] = useState("KALYANPUR BLOCK");
+  const [region, setRegion] = useState("SANGLI, MAHARASHTRA");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardVisible, setDashboardVisible] = useState(false);
   const dashboardHideTimerRef = useRef<number | null>(null);
@@ -264,7 +256,7 @@ export function App() {
   const sectionIdToName = (id: string): string | null => {
     const mapping: { [key: string]: string } = {
       "section-overview": "Overview",
-      "section-groundwater": "Groundwater map",
+      "section-realtime-map": "Real-time Map",
       "section-field-conditions": "Field conditions",
       "section-community-alerts": "Community alerts",
       "section-administration": "Local administration",
@@ -298,31 +290,13 @@ export function App() {
 
   const handleRegionChange = () => {
     const next =
-      region === "KALYANPUR BLOCK"
-        ? "SOUTH WARD"
-        : region === "SOUTH WARD"
-        ? "BHAVANIPUR BLOCK"
-        : "KALYANPUR BLOCK";
+      region === "SANGLI, MAHARASHTRA"
+        ? "MIRAJ, MAHARASHTRA"
+        : region === "MIRAJ, MAHARASHTRA"
+        ? "VITA, MAHARASHTRA"
+        : "SANGLI, MAHARASHTRA";
     setRegion(next);
     notify(`Region changed to ${next}`);
-  };
-
-  const handleZoom = (delta: number) => {
-    setMapZoom((val) => Math.min(1.55, Math.max(0.82, Number((val + delta).toFixed(2)))));
-  };
-
-  const handleLayersToggle = () => {
-    setLayers((prev) => {
-      notify(!prev ? "Field and well layers shown" : "Field and well layers hidden");
-      return !prev;
-    });
-  };
-
-  const handleSatelliteToggle = () => {
-    setSatellite((prev) => {
-      notify(!prev ? "Satellite multi-spectral view enabled" : "Tactical terrain view restored");
-      return !prev;
-    });
   };
 
   const handlePeriodChange = () => {
@@ -480,18 +454,18 @@ export function App() {
             </div>
           </section>
 
-          {/* SECTION 02: GROUNDWATER MAP */}
+          {/* SECTION 02: REAL-TIME MAP */}
           <section
-            ref={(el) => { sectionRefs.current["section-groundwater"] = el; }}
-            id="section-groundwater"
+            ref={(el) => { sectionRefs.current["section-realtime-map"] = el; }}
+            id="section-realtime-map"
             className="content-section"
-            aria-label="Groundwater Map"
+            aria-label="Real-time Map"
           >
             <div className="section-header">
               <span className="section-number">02</span>
               <div className="section-title-group">
-                <h2 className="section-heading">GROUNDWATER MAP</h2>
-                <p className="section-subheading">What is happening beneath us?</p>
+                <h2 className="section-heading">REAL-TIME MAP</h2>
+                <p className="section-subheading">Live sensor data from Sangli, Maharashtra</p>
               </div>
             </div>
 
@@ -541,18 +515,11 @@ export function App() {
             )}
 
             <div className="groundwater-map-workspace">
-              <GroundwaterMap
-                wells={initialWells}
-                scenario={scenario}
-                zoom={mapZoom}
-                satellite={satellite}
-                layers={layers}
-                onZoom={handleZoom}
-                onLayersToggle={handleLayersToggle}
-                onSatelliteToggle={handleSatelliteToggle}
-                selectedWellId={selectedWellId}
-                onSelectWell={setSelectedWellId}
-                weather={liveWeather}
+              <RealTimeMap
+                onSensorSelect={(sensorId) => {
+                  setSelectedWellId(sensorId);
+                  notify(`Selected sensor: ${sensorId}`);
+                }}
               />
 
               <RiskPicture
