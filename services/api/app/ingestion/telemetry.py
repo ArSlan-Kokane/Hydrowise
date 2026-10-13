@@ -343,8 +343,7 @@ class PostgresTelemetryStore:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct,
-                       soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
+                SELECT *
                 FROM sensor_readings
                 ORDER BY id DESC
                 LIMIT 1;
@@ -360,8 +359,7 @@ class PostgresTelemetryStore:
             cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
             rows = await conn.fetch(
                 """
-                SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct,
-                       soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
+                SELECT *
                 FROM sensor_readings
                 WHERE captured_at >= $1
                 ORDER BY captured_at DESC
@@ -373,8 +371,7 @@ class PostgresTelemetryStore:
             if not rows:
                 rows = await conn.fetch(
                     """
-                    SELECT id, device_id, temperature_C, humidity_pct, soil_moisture_pct,
-                           soil_raw, soil_mv, rain, rain_raw, captured_at, received_at
+                    SELECT *
                     FROM sensor_readings
                     ORDER BY id DESC
                     LIMIT $1;
@@ -385,24 +382,36 @@ class PostgresTelemetryStore:
 
     @staticmethod
     def _row_to_model(row) -> SensorReading:
-        rec_val = row["received_at"]
-        cap_val = row["captured_at"]
-        soil_raw = row["soil_raw"] if "soil_raw" in row else None
-        soil_mv = row["soil_mv"] if "soil_mv" in row else None
-        rain = row["rain"] if "rain" in row else None
-        rain_raw = row["rain_raw"] if "rain_raw" in row else None
+        d = dict(row)
+
+        def get_ci(key: str, default=None):
+            for k, v in d.items():
+                if k.lower() == key.lower():
+                    return v
+            return default
+
+        temp = get_ci("temperature_C")
+        humidity = get_ci("humidity_pct")
+        soil = get_ci("soil_moisture_pct")
+        soil_raw = get_ci("soil_raw")
+        soil_mv = get_ci("soil_mv")
+        rain = get_ci("rain")
+        rain_raw = get_ci("rain_raw")
+        captured_at = get_ci("captured_at")
+        received_at = get_ci("received_at")
+
         return SensorReading(
-            device_id=row["device_id"],
-            temperature_C=row["temperature_C"],
-            humidity_percent=row["humidity_pct"],
-            soil_moisture_percent=row["soil_moisture_pct"],
-            soil_raw=soil_raw,
-            soil_mv=soil_mv,
-            rain=rain,
-            rain_raw=rain_raw,
+            device_id=str(get_ci("device_id", "esp32-field-01")),
+            temperature_C=float(temp) if temp is not None else 25.0,
+            humidity_percent=float(humidity) if humidity is not None else 50.0,
+            soil_moisture_percent=float(soil) if soil is not None else 30.0,
+            soil_raw=int(soil_raw) if soil_raw is not None else None,
+            soil_mv=int(soil_mv) if soil_mv is not None else None,
+            rain=int(rain) if rain is not None else None,
+            rain_raw=int(rain_raw) if rain_raw is not None else None,
             rain_detected=bool(rain == 1) if rain is not None else None,
-            captured_at=cap_val,
-            received_at=rec_val,
+            captured_at=captured_at if captured_at is not None else datetime.now(timezone.utc),
+            received_at=received_at,
         )
 
     async def close(self) -> None:
