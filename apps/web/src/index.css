@@ -2258,13 +2258,29 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 /* River current animation */
-.water-flow {
-  animation: riverFlow 6s linear infinite;
+.water-flow,
+.real-river-flow {
+  animation: riverFlow 6s linear infinite !important;
 }
 @keyframes riverFlow {
   to {
     stroke-dashoffset: -200px;
   }
+}
+
+/* Real river styling on Leaflet map */
+.real-river-bed {
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.45));
+}
+
+.real-river-flow {
+  cursor: pointer;
+  transition: stroke 0.2s ease;
+}
+
+.real-river-flow:hover {
+  stroke: #ffffff !important;
+  stroke-width: 3.5px !important;
 }
 
 /* Village labels on map */

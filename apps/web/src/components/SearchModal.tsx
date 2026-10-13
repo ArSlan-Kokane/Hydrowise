@@ -19,6 +19,8 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
     { type: "sensor", id: "sensor-3", name: "Sensor: Vita East", detail: "16.82°N, 74.62°E · Real-time telemetry" },
     { type: "sensor", id: "sensor-4", name: "Sensor: Kundal South", detail: "16.78°N, 74.65°E · Real-time telemetry" },
     { type: "sensor", id: "sensor-5", name: "Sensor: Jath West", detail: "16.92°N, 74.48°E · Real-time telemetry" },
+    { type: "river", id: "krishna-river", name: "Krishna River Basin", detail: "Sangli Lifeline · Real-time flowing watercourse traced" },
+    { type: "river", id: "warna-river", name: "Warna River Tributary", detail: "Haripur Sangam · Confluence watercourse monitored" },
     { type: "location", id: "sangli", name: "Sangli, Maharashtra", detail: "District headquarters · Monitoring region" },
     { type: "alert", id: "alert-1", name: "Sensor Network Status", detail: "All sensors operational · Data flowing" },
   ];
@@ -106,7 +108,7 @@ export function SearchModal({ isOpen, onClose, onSelectWell, onNotify }: SearchM
                       fontFamily: "var(--font-mono)",
                       fontSize: "9px",
                       textTransform: "uppercase",
-                      color: item.type === "sensor" ? "var(--aqua-primary)" : item.type === "alert" ? "var(--warning-primary)" : "var(--green-bright)",
+                      color: item.type === "sensor" ? "var(--aqua-primary)" : item.type === "river" ? "#0284c7" : item.type === "alert" ? "var(--warning-primary)" : "var(--green-bright)",
                       background: "rgba(255,255,255,0.06)",
                       padding: "2px 5px",
                       borderRadius: "4px",

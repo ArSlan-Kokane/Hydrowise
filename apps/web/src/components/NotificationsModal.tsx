@@ -29,7 +29,7 @@ export function NotificationsModal({ isOpen, onClose, onNotify }: NotificationsM
     },
     {
       id: "a3",
-      title: "Kalu River Canal Gate Flow Restored",
+      title: "Krishna River Canal Gate Flow Restored",
       detail: "Gate maintenance completed at Sector 4. Inflow stabilized at 14.2 m³/s.",
       time: "3 hr ago",
       level: "good",

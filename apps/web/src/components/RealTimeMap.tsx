@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { apiClient } from "../api/client";
 import type { SensorReading, WeatherSnapshot } from "../types/contracts";
+import { SANGLI_RIVERS } from "../data/riverPath";
 
 // Fix for default marker icons in Leaflet with React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -120,6 +121,89 @@ export function RealTimeMap({ onSensorSelect }: RealTimeMapProps) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {/* Real River Paths Traced Directly from OpenStreetMap Data */}
+        {SANGLI_RIVERS.map((river) => {
+          const isMain = river.type === "main";
+          return (
+            <React.Fragment key={river.id}>
+              {/* 1. Subtle River Bed Outer Glow */}
+              <Polyline
+                positions={river.path}
+                pathOptions={{
+                  className: "real-river-bed",
+                  color: "#38bdf8",
+                  weight: isMain ? 15 : 9,
+                  opacity: 0.35,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+
+              {/* 2. Main River Channel Body */}
+              <Polyline
+                positions={river.path}
+                pathOptions={{
+                  className: "real-river-channel",
+                  color: "#0284c7",
+                  weight: isMain ? 7 : 4.5,
+                  opacity: 0.88,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+
+              {/* 3. Inner Water Core Highlight */}
+              <Polyline
+                positions={river.path}
+                pathOptions={{
+                  className: "real-river-core",
+                  color: "#bae6fd",
+                  weight: isMain ? 3 : 1.8,
+                  opacity: 0.75,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+
+              {/* 4. Animated Flow Ripple Dashes (Highlighted with our river flow animation) */}
+              <Polyline
+                positions={river.path}
+                pathOptions={{
+                  className: "water-flow real-river-flow",
+                  color: "#ffffff",
+                  weight: isMain ? 2.2 : 1.5,
+                  dashArray: isMain ? "8, 22" : "6, 18",
+                  opacity: 0.95,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              >
+                <Tooltip sticky direction="top" offset={[0, -10]}>
+                  <div style={{ fontFamily: "var(--font-mono, sans-serif)", fontSize: "11px", color: "#111" }}>
+                    <strong>🌊 {river.name}</strong>
+                    <div style={{ fontSize: "10px", color: "#0284c7" }}>
+                      {isMain ? "Sangli Lifeline · Real Path Traced" : "Warna Tributary · Haripur Sangam"}
+                    </div>
+                  </div>
+                </Tooltip>
+                <Popup>
+                  <div style={{ minWidth: "200px" }}>
+                    <h3 style={{ margin: "0 0 6px 0", fontSize: "15px", color: "#0284c7" }}>
+                      🌊 {river.name}
+                    </h3>
+                    <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#444" }}>
+                      {river.description}
+                    </p>
+                    <div style={{ fontSize: "11px", color: "#666" }}>
+                      Real-time OpenStreetMap geographic path with active current flow animation.
+                    </div>
+                  </div>
+                </Popup>
+              </Polyline>
+            </React.Fragment>
+          );
+        })}
 
         {/* Weather radar coverage circle */}
         {weatherData && (
@@ -274,6 +358,20 @@ export function RealTimeMap({ onSensorSelect }: RealTimeMapProps) {
             }}
           />
           <span>Stressed (&lt;30% moisture)</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "4px" }}>
+          <div
+            style={{
+              width: "16px",
+              height: "4px",
+              background: "#0284c7",
+              borderRadius: "2px",
+              marginRight: "8px",
+              boxShadow: "0 0 6px #38bdf8",
+              position: "relative",
+            }}
+          />
+          <span>Krishna River (Flow Traced)</span>
         </div>
         <div style={{ display: "flex", alignItems: "center" }}>
           <div
