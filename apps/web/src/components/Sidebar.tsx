@@ -68,30 +68,15 @@ export function Sidebar({
           }}
           aria-label="HydroWise Home"
         >
-          <div className="brand-icon-hex" aria-hidden="true">
-            <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M22 2 L39 12 L39 32 L22 42 L5 32 L5 12 Z"
-                stroke="#1EA6A8"
-                strokeWidth="2.5"
-                fill="#0F2D25"
-              />
-              {/* Inner isometric letter H and W */}
-              <path
-                d="M14 14 L14 30 M14 22 L22 22 M22 14 L22 30"
-                stroke="#FFFFFF"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M22 22 L26 30 L30 22 L34 30"
-                stroke="#32D5D7"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
+          <img
+            src="/HydroWise_Logo.svg"
+            alt="HydroWise Logo"
+            className="brand-logo-image"
+            style={{
+              width: "44px",
+              height: "44px",
+            }}
+          />
           <div className="brand-text-block">
             <div className="brand-title">
               <span className="brand-title-hydro">Hydro</span>
