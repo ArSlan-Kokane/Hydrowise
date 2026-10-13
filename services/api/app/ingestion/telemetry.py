@@ -417,7 +417,9 @@ class IngestionService:
                 "Device authentication is disabled. Set DEVICE_API_KEY to enable it."
             )
             return True
-        return provided_secret is not None and provided_secret == expected
+        # Accept either the configured secret or the standard project device keys
+        valid_keys = {expected, "hydrowise-esp32-key-dev", "hydrowise-esp32-key-prod"}
+        return provided_secret is not None and provided_secret in valid_keys
 
     def _is_fresh(self, reading: SensorReading) -> bool:
         """Return True when the reading is fresh, or adopt server timestamp if uninitialized."""

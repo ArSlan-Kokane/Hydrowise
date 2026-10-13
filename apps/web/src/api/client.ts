@@ -1,9 +1,10 @@
 import type { DashboardState, IrrigationDecision, SensorReading, WeatherSnapshot } from "../types/contracts";
 
 const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL;
-// When VITE_API_BASE_URL is specified (e.g. deployed cloud API), use it directly.
-// Otherwise use relative "" so Vite dev server proxies /api to backend, falling back to localhost:8000.
-const PRIMARY_BASE = RAW_API_BASE ? RAW_API_BASE.replace(/\/+$/, "") : "";
+// Connect directly to the HydroWise Cloud API (Render) by default, or override via VITE_API_BASE_URL.
+const PRIMARY_BASE = (RAW_API_BASE !== undefined && RAW_API_BASE !== "")
+  ? RAW_API_BASE.replace(/\/+$/, "")
+  : "https://hydrowise-api.onrender.com";
 const FALLBACK_BASE = "http://localhost:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
