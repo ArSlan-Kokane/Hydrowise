@@ -69,7 +69,7 @@ const char* API_BASE_URL   = "https://hydrowise-api.onrender.com"; // HydroWise 
 // For local testing on your PC: "http://<YOUR_PC_IP>:8000"
 
 const char* DEVICE_ID      = "esp32-field-01";
-const char* DEVICE_API_KEY = "hydrowise-esp32-key-dev";
+const char* DEVICE_API_KEY = "OvxiNrG7lFq7tLJzroQgedHSHZJOaRY4Tu+Sl0lou2I="; // Active Render Cloud Key
 
 // Interval between sending data to the website (milliseconds)
 #define POST_INTERVAL      5000   // Every 5 seconds
