@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Icon } from "./Icons";
+import { apiClient } from "../api/client";
+import type { SensorReading, WeatherSnapshot, IrrigationDecision } from "../types/contracts";
 
 interface SensorData {
   temperature: number;
@@ -7,62 +9,57 @@ interface SensorData {
   soilMoisture: number;
 }
 
-interface DecisionResponse {
-  recommendation: "IRRIGATE" | "DO_NOT_IRRIGATE";
-  confidence: number;
-  reasoning: string;
-  safety_status: "RECOMMENDATION_ONLY" | "AUTOMATED";
-  ml_version: string;
-}
-
 export function IrrigationDecisionStation() {
-  const [decision, setDecision] = useState<DecisionResponse | null>(null);
+  const [decision, setDecision] = useState<IrrigationDecision | null>(null);
   const [sensors, setSensors] = useState<SensorData>({
     temperature: 31.9,
     humidity: 67.6,
     soilMoisture: 45.9,
   });
+  const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const [animateValue, setAnimateValue] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch decision from API
   const fetchDecision = async () => {
     setIsEvaluating(true);
     setAnimateValue(false);
+    setError(null);
     try {
-      const response = await fetch("/api/v1/decisions/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          weather_gate: {
-            rain_probability: 0,
-            temperature: 31.9,
-            humidity: 67.6,
-          },
-          telemetry: {
-            soil_moisture: 45.9,
-            temperature: 31.9,
-            humidity: 67.6,
-          },
-        }),
-      });
+      // Fetch weather and sensors first
+      const [weatherData, sensorData] = await Promise.all([
+        apiClient.getWeather().catch(() => null),
+        apiClient.getLatestSensors().catch(() => null),
+      ]);
 
-      if (response.ok) {
-        const data = await response.json();
-        setDecision(data);
+      if (weatherData) setWeather(weatherData);
+      if (sensorData) {
+        setSensors({
+          temperature: sensorData.temperature_C,
+          humidity: sensorData["humidity_%"],
+          soilMoisture: sensorData["soil_moisture_%"],
+        });
+      }
+
+      // Evaluate decision with the fetched data
+      if (weatherData && sensorData) {
+        const decisionData = await apiClient.evaluateDecision({
+          weather: weatherData,
+          sensors: sensorData,
+        });
+        setDecision(decisionData);
+        setLastUpdate(new Date().toLocaleTimeString());
+      } else {
+        // Fallback to GET endpoint if data unavailable
+        const decisionData = await apiClient.getDecision();
+        setDecision(decisionData);
         setLastUpdate(new Date().toLocaleTimeString());
       }
-    } catch (error) {
-      console.error("Failed to fetch decision:", error);
-      // Fallback to mock data
-      setDecision({
-        recommendation: "IRRIGATE",
-        confidence: 89,
-        reasoning: "Weather gate passed, soil moisture below threshold, ML model recommends irrigation",
-        safety_status: "RECOMMENDATION_ONLY",
-        ml_version: "AMHOE-v1.0-proprietary",
-      });
+    } catch (err) {
+      console.error("Failed to fetch decision:", err);
+      setError("Failed to fetch decision data");
       setLastUpdate(new Date().toLocaleTimeString());
     } finally {
       setIsEvaluating(false);
@@ -73,17 +70,14 @@ export function IrrigationDecisionStation() {
   // Fetch sensor readings
   const fetchSensors = async () => {
     try {
-      const response = await fetch("/api/v1/sensors/latest");
-      if (response.ok) {
-        const data = await response.json();
-        setSensors({
-          temperature: data.temperature || 31.9,
-          humidity: data.humidity || 67.6,
-          soilMoisture: data.soil_moisture || 45.9,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fetch sensors:", error);
+      const data = await apiClient.getLatestSensors();
+      setSensors({
+        temperature: data.temperature_C,
+        humidity: data["humidity_%"],
+        soilMoisture: data["soil_moisture_%"],
+      });
+    } catch (err) {
+      console.error("Failed to fetch sensors:", err);
     }
   };
 
@@ -104,9 +98,36 @@ export function IrrigationDecisionStation() {
   const moistureStatus = sensors.soilMoisture < 40 ? "Low" : sensors.soilMoisture < 60 ? "Moderate" : "Good";
   const moisturePercent = Math.min(100, Math.max(0, sensors.soilMoisture));
 
+  // Calculate confidence from weather gate and ML result
+  const confidence = decision ? (
+    decision.weather_gate.passed && decision.ml_result ? 85 : 70
+  ) : 89;
+
+  // Generate reasoning from decision components
+  const reasoning = decision ? (
+    decision.weather_gate.passed
+      ? `Weather gate passed (rain probability: ${decision.weather_gate["rain_probability_%"]}%), ${decision.ml_result ? `ML model (${decision.ml_result.model_version}) recommends ${decision.ml_result.recommendation.toLowerCase()}` : "ML model unavailable"}`
+      : `Weather gate blocked (rain probability: ${decision.weather_gate["rain_probability_%"]}% exceeds threshold)`
+  ) : "Analyzing field conditions and weather data...";
+
   return (
     <section className="irrigation-decision-panel" aria-label="Automated Irrigation Decision">
       <div className="decision-panel-card">
+        {/* Error display */}
+        {error && (
+          <div className="error-banner" style={{
+            padding: "12px 16px",
+            backgroundColor: "#fee2e2",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+            marginBottom: "16px",
+            color: "#dc2626",
+            fontSize: "14px",
+          }}>
+            {error}
+          </div>
+        )}
+
         {/* Header with decision status */}
         <div className="decision-panel-header">
           <div className="decision-label-group">
@@ -132,7 +153,7 @@ export function IrrigationDecisionStation() {
                 {isIrrigate ? "IRRIGATE NOW" : "HOLD ACTION"}
               </h3>
               <p className="decision-reasoning">
-                {decision?.reasoning || "Analyzing field conditions and weather data..."}
+                {error || reasoning}
               </p>
             </div>
           </div>
@@ -166,12 +187,12 @@ export function IrrigationDecisionStation() {
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${Math.PI * 50} ${Math.PI * 50}`}
-                strokeDashoffset={`${Math.PI * 50 * (1 - (decision?.confidence || 89) / 100)}`}
+                strokeDashoffset={`${Math.PI * 50 * (1 - confidence / 100)}`}
                 className={`gauge-fill ${animateValue ? 'animate' : ''}`}
               />
             </svg>
             <div className="gauge-value">
-              <span className="confidence-number">{decision?.confidence || 89}</span>
+              <span className="confidence-number">{confidence}</span>
               <span className="confidence-percent">%</span>
             </div>
             <span className="confidence-label">ML Confidence</span>
@@ -180,11 +201,13 @@ export function IrrigationDecisionStation() {
           <div className="decision-info">
             <div className="info-item">
               <span className="info-label">Model</span>
-              <span className="info-value">AMHOE-v1.0</span>
+              <span className="info-value">{decision?.ml_result?.model_version || "AMHOE-v1.0"}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Safety</span>
-              <span className="info-value warning">RECOMMENDATION_ONLY</span>
+              <span className={`info-value ${decision?.safety_status === "RECOMMENDATION_ONLY" ? "warning" : ""}`}>
+                {decision?.safety_status || "RECOMMENDATION_ONLY"}
+              </span>
             </div>
             <div className="info-item">
               <span className="info-label">Updated</span>
@@ -257,7 +280,7 @@ export function IrrigationDecisionStation() {
 
         {/* Decision pipeline with animated steps */}
         <div className="decision-pipeline">
-          <div className="pipeline-step complete">
+          <div className={`pipeline-step ${decision?.weather_gate.passed ? "complete" : "pending"}`}>
             <div className="step-icon-wrapper">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="13 2 3 14 12 14 22 2" />
@@ -266,7 +289,7 @@ export function IrrigationDecisionStation() {
             <div className="step-info">
               <span className="step-number">01</span>
               <span className="step-name">Weather Gate</span>
-              <span className="step-status">PASSED</span>
+              <span className="step-status">{decision?.weather_gate.passed ? "PASSED" : "BLOCKED"}</span>
             </div>
           </div>
           <div className="pipeline-connector" />

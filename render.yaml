@@ -4,7 +4,7 @@ services:
     env: docker
     plan: free
     dockerfilePath: ./services/api/Dockerfile
-    dockerContext: ./services/api
+    dockerContext: .
     envVars:
       - key: HYDROWISE_ENV
         value: production
@@ -21,9 +21,9 @@ services:
       - key: WEATHER_API_KEY
         value: ""
       - key: MODEL_ARTIFACT_PATH
-        value: ""
+        value: ml/models/model_blueprint.json
       - key: MODEL_VERSION
-        value: mock-v0.1
+        value: AMHOE-v1.0-proprietary
 
 databases:
   - name: hydrowise-db

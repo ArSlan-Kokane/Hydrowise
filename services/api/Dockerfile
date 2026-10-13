@@ -10,13 +10,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY services/api/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ ./app/
+COPY services/api/app/ ./app/
+
+# Copy ML model and inference engine
+COPY ml/models/ ./ml/models/
+COPY ml/src/ ./ml/src/
 
 # Expose port
 EXPOSE 8000
