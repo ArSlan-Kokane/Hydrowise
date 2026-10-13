@@ -187,10 +187,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   filter: none;
   pointer-events: auto;
   box-shadow: 2px 0 12px rgba(16, 43, 33, 0.04);
-  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              filter 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sidebar.dashboard-hidden,
+.sidebar.dashboard-hidden {
+  transform: translateX(-12px);
+  opacity: 0.6;
+  filter: blur(0.5px);
+  pointer-events: none;
+}
+
 .sidebar.dashboard-visible {
   transform: translateX(0);
   opacity: 1;
@@ -404,7 +412,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
    ========================================================================== */
 
 .irrigation-decision-panel {
-  margin-top: 24px;
+  margin-top: 0;
 }
 
 .decision-panel-card {
