@@ -5,6 +5,7 @@ interface SidebarProps {
   active: string;
   setActive: (value: string) => void;
   isOpen: boolean;
+  isHovered?: boolean;
   dashboardVisible: boolean;
   onSidebarEnter: () => void;
   onSidebarLeave: () => void;
@@ -17,6 +18,7 @@ export function Sidebar({
   active,
   setActive,
   isOpen,
+  isHovered = false,
   dashboardVisible,
   onSidebarEnter,
   onSidebarLeave,
@@ -51,7 +53,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={`sidebar ${isOpen ? "open" : ""} ${dashboardVisible ? "dashboard-visible" : "dashboard-hidden"}`}
+      className={`sidebar ${isOpen ? "open" : ""} ${dashboardVisible ? "dashboard-visible" : "dashboard-hidden"} ${isHovered ? "hover-revealed" : ""}`}
       aria-label="Main navigation"
       onMouseEnter={onSidebarEnter}
       onMouseLeave={onSidebarLeave}

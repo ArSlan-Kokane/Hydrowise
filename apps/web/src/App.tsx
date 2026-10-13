@@ -83,6 +83,7 @@ export function App() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   const [selectedWellId, setSelectedWellId] = useState<string>("sensor-1");
   const [period, setPeriod] = useState(30);
@@ -296,17 +297,25 @@ HydroWise Living Water Intelligence System · Read the landscape. Act before sca
     <div className="app">
       <SkipLink />
 
+      {/* Hover trigger zone — invisible strip at left edge triggers sidebar on desktop */}
+      <div
+        className="sidebar-trigger-zone"
+        onMouseEnter={() => setSidebarHovered(true)}
+        aria-hidden="true"
+      />
+
       {/* Main Persistent Desktop / Slide-out Mobile Sidebar */}
       <Sidebar
         active={active}
         setActive={setActive}
         isOpen={sidebarOpen}
         dashboardVisible={true}
-        onSidebarEnter={() => {}}
-        onSidebarLeave={() => {}}
-        onSidebarFocus={() => {}}
-        onClose={() => setSidebarOpen(false)}
+        onSidebarEnter={() => setSidebarHovered(true)}
+        onSidebarLeave={() => setSidebarHovered(false)}
+        onSidebarFocus={() => setSidebarHovered(true)}
+        onClose={() => { setSidebarOpen(false); setSidebarHovered(false); }}
         onOpenAdmin={() => setAdminOpen(true)}
+        isHovered={sidebarHovered}
       />
 
       {sidebarOpen && (
@@ -317,7 +326,7 @@ HydroWise Living Water Intelligence System · Read the landscape. Act before sca
         />
       )}
 
-      <div className="content">
+      <div className={`content${sidebarHovered ? " sidebar-revealed" : ""}`}>
         {/* Sticky Header */}
         <Header
           active={active}
@@ -513,7 +522,7 @@ HydroWise Living Water Intelligence System · Read the landscape. Act before sca
               </div>
             </div>
 
-            <div className="field-conditions-workspace" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1.35fr)", gap: "18px" }}>
+            <div className="field-conditions-workspace">
               <AquiferMovement
                 period={period}
                 onPeriodChange={handlePeriodChange}

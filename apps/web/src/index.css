@@ -150,10 +150,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .content {
   flex: 1;
   min-width: 0;
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.2s ease;
+  transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* When sidebar is revealed on hover, push content right to avoid overlap */
+.content.sidebar-revealed {
+  margin-left: var(--sidebar-width);
 }
 
 .page {
@@ -170,6 +175,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
    Sidebar Navigation
    ========================================================================== */
 
+/* Hover trigger zone — invisible 16px strip at left edge */
+.sidebar-trigger-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 100vh;
+  z-index: 99;
+  cursor: default;
+}
+
 .sidebar {
   width: var(--sidebar-width);
   background: var(--bg-sidebar);
@@ -182,28 +198,32 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   left: 0;
   z-index: 100;
   padding: 20px 14px 18px;
-  transform: translateX(0);
-  opacity: 1;
-  filter: none;
-  pointer-events: auto;
-  box-shadow: 2px 0 12px rgba(16, 43, 33, 0.04);
-  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 280ms cubic-bezier(0.16, 1, 0.3, 1),
-              filter 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Hidden by default — slides off left edge */
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 250ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 300ms ease;
 }
 
+/* Revealed on hover (desktop) */
+.sidebar.hover-revealed,
+.sidebar.open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: 4px 0 24px rgba(16, 43, 33, 0.12);
+}
+
+/* dashboard-hidden/visible modifiers preserved for compat, but now hover controls visibility */
 .sidebar.dashboard-hidden {
-  transform: translateX(-12px);
-  opacity: 0.6;
-  filter: blur(0.5px);
-  pointer-events: none;
+  /* no extra hiding — hover state drives it */
 }
 
 .sidebar.dashboard-visible {
-  transform: translateX(0);
-  opacity: 1;
-  filter: none;
-  pointer-events: auto;
+  /* no extra override — hover state drives it */
 }
 
 .side-brand {
@@ -263,6 +283,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   right: 14px;
   padding: 6px;
   color: var(--text-secondary);
+}
+
+/* Show close button whenever sidebar is revealed */
+.sidebar.hover-revealed .sidebar-close,
+.sidebar.open .sidebar-close {
+  display: block;
 }
 
 /* Nav Main */
@@ -1504,9 +1530,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 /* Field Conditions Workspace */
 .field-conditions-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.35fr);
-  gap: 18px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 20px;
+  align-items: start;
 }
 
 /* Community Alerts Workspace */
@@ -3270,11 +3296,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 @media (max-width: 900px) {
+  /* On mobile, sidebar always starts hidden, open class shows it as overlay */
   .sidebar {
     transform: translateX(-100%);
+    opacity: 1; /* keep opacity for mobile — it fades via transform */
   }
-  .sidebar.dashboard-hidden,
-  .sidebar.dashboard-visible {
+  .sidebar.hover-revealed {
+    /* Don't trigger hover-reveal on mobile (no hover) */
     transform: translateX(-100%);
     box-shadow: none;
   }
@@ -3282,6 +3310,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     transform: translateX(0);
     opacity: 1;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+  }
+  /* No content push on mobile — sidebar overlays */
+  .content.sidebar-revealed {
+    margin-left: 0;
+  }
+  .sidebar-trigger-zone {
+    display: none;
   }
   .sidebar-close {
     display: block;
@@ -3292,9 +3327,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
     inset: 0;
     background: rgba(0, 0, 0, 0.3);
     z-index: 95;
-  }
-  .content {
-    margin-left: 0;
   }
   .menu-button {
     display: grid;
