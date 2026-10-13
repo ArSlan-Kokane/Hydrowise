@@ -1,11 +1,14 @@
 import type { DashboardState, IrrigationDecision, SensorReading, WeatherSnapshot } from "../types/contracts";
 
 const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL;
-// Connect directly to the HydroWise Cloud API (Render) by default, or override via VITE_API_BASE_URL.
+const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+// In local browser development, default to local backend (http://localhost:8000) for instant zero-latency sensor streaming.
+// In production or when VITE_API_BASE_URL is specified, use that or the Render cloud API.
 const PRIMARY_BASE = (RAW_API_BASE !== undefined && RAW_API_BASE !== "")
   ? RAW_API_BASE.replace(/\/+$/, "")
-  : "https://hydrowise-api.onrender.com";
-const FALLBACK_BASE = "http://localhost:8000";
+  : (isLocalhost ? "http://localhost:8000" : "https://hydrowise-api.onrender.com");
+const FALLBACK_BASE = isLocalhost ? "https://hydrowise-api.onrender.com" : "http://localhost:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
