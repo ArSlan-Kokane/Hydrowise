@@ -61,12 +61,12 @@
 //             WI-FI & CLOUD API CONFIGURATION
 // =====================================================
 // 1. Enter your 2.4 GHz Wi-Fi details:
-const char* WIFI_SSID     = "Raj";
-const char* WIFI_PASSWORD = "123456789";
+const char* WIFI_SSID     = "Aditya's iPhone";
+const char* WIFI_PASSWORD = "1a2b3c4d";
 
-// 2. Your Cloud API URL or Computer's local IP:
-const char* API_BASE_URL   = "https://hydrowise-api.onrender.com"; // HydroWise Cloud API (Render)
-// For local testing on your PC: "http://<YOUR_PC_IP>:8000"
+// 2. Your Local PC IP on Hotspot (or Cloud API URL):
+const char* API_BASE_URL   = "http://172.20.10.5:8000"; // Local PC on "Aditya's iPhone" Hotspot
+// For cloud deployment: "https://hydrowise-api.onrender.com"
 
 const char* DEVICE_ID      = "esp32-field-01";
 const char* DEVICE_API_KEY = "OvxiNrG7lFq7tLJzroQgedHSHZJOaRY4Tu+Sl0lou2I="; // Active Render Cloud Key
@@ -158,17 +158,93 @@ String getIso8601Time() {
   return String(buffer);
 }
 
+// Return human-readable string for Wi-Fi status codes
+const char* getWiFiStatusName(wl_status_t status) {
+  switch (status) {
+    case WL_IDLE_STATUS:     return "WL_IDLE_STATUS (Idle / Negotiating)";
+    case WL_NO_SSID_AVAIL:   return "WL_NO_SSID_AVAIL (Target SSID not found! Hotspot may be out of range, hidden, or on 5 GHz)";
+    case WL_SCAN_COMPLETED:  return "WL_SCAN_COMPLETED";
+    case WL_CONNECTED:       return "WL_CONNECTED (Connected)";
+    case WL_CONNECT_FAILED:  return "WL_CONNECT_FAILED (Password incorrect or security handshake rejected - check for WPA3)";
+    case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
+    case WL_DISCONNECTED:    return "WL_DISCONNECTED (Disconnected - check client limit on phone or WPA2 setting)";
+    default:                 return "UNKNOWN_STATUS";
+  }
+}
+
+// Diagnostic Wi-Fi scan to verify which 2.4 GHz networks the ESP32 can see
+void scanNearbyNetworks() {
+  Serial.println("\n[WiFi Scanner] Scanning for visible 2.4 GHz networks...");
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+
+  int n = WiFi.scanNetworks();
+  if (n == 0) {
+    Serial.println("[WiFi Scanner] No 2.4 GHz networks detected at all. Check ESP32 antenna / power supply.");
+  } else {
+    Serial.printf("[WiFi Scanner] Found %d network(s):\n", n);
+    bool hotspotFound = false;
+    for (int i = 0; i < n; ++i) {
+      String ssid = WiFi.SSID(i);
+      int rssi = WiFi.RSSI(i);
+      Serial.printf("   [%d] \"%s\" | Signal: %d dBm | %s\n",
+                    i + 1,
+                    ssid.c_str(),
+                    rssi,
+                    WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "Open" : "Secured");
+      String lower = ssid;
+      lower.toLowerCase();
+      if (ssid == WIFI_SSID || (lower.indexOf("aditya") >= 0 && lower.indexOf("iphone") >= 0)) {
+        hotspotFound = true;
+      }
+    }
+    if (hotspotFound) {
+      Serial.printf("[WiFi Scanner] -> Network \"%s\" WAS DETECTED! Make sure 'Maximize Compatibility' is ON in iPhone Hotspot settings.\n\n", WIFI_SSID);
+    } else {
+      Serial.printf("[WiFi Scanner] -> Network \"%s\" WAS NOT FOUND. In iPhone Settings -> Personal Hotspot, toggle 'Maximize Compatibility' ON.\n\n", WIFI_SSID);
+    }
+  }
+}
+
 // Connect to Wi-Fi network
 bool connectWiFi() {
-  Serial.print("[WiFi] Connecting to: ");
-  Serial.println(WIFI_SSID);
+  String targetSSID = WIFI_SSID;
+
+  WiFi.persistent(false); // Don't wear flash or use stale cached configs
+  WiFi.disconnect(true);  // Cleanly disconnect and reset station state
+  delay(200);
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.setTxPower(WIFI_POWER_17dBm); // Reduce TX power spike to prevent USB brownout
+
+  // Check if an iPhone SSID matching "aditya" is broadcasting to handle iOS apostrophe variations (’ vs ' vs `)
+  int numNetworks = WiFi.scanNetworks();
+  for (int i = 0; i < numNetworks; i++) {
+    String scanned = WiFi.SSID(i);
+    String lower = scanned;
+    lower.toLowerCase();
+    if (scanned == targetSSID || (lower.indexOf("aditya") >= 0 && lower.indexOf("iphone") >= 0)) {
+      targetSSID = scanned;
+      Serial.printf("[WiFi] Detected broadcasted SSID: \"%s\"\n", targetSSID.c_str());
+      break;
+    }
+  }
+
+  Serial.print("[WiFi] Connecting to: ");
+  Serial.println(targetSSID);
+  WiFi.begin(targetSSID.c_str(), WIFI_PASSWORD);
 
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED) {
-    if (millis() - start > 20000) {
-      Serial.println("\n[WiFi] Connection timed out! Check SSID and Password.");
+    if (millis() - start > 12000) {
+      wl_status_t finalStatus = WiFi.status();
+      Serial.println();
+      Serial.print("[WiFi] Connection timed out! Reason: ");
+      Serial.println(getWiFiStatusName(finalStatus));
+
+      // Run diagnostic scan so user can see why it failed
+      scanNearbyNetworks();
       return false;
     }
     digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN)); // Flash LED
@@ -208,24 +284,37 @@ bool postTelemetry(float temperature, float humidity, int soilPct, int soilRaw, 
 
   String url = String(API_BASE_URL) + "/api/sensors/reading";
 
-  if (url.startsWith("https://")) {
-    wifiClient.setInsecure();
-    http.begin(wifiClient, url);
-  } else {
-    http.begin(url);
-  }
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Key", DEVICE_API_KEY);
+  HTTPClient httpClient;
+  httpClient.setTimeout(4000);
 
-  int httpCode = http.POST(jsonPayload);
+  bool beginOk = false;
+  WiFiClient plainClient;
+  WiFiClientSecure secureClient;
+
+  if (url.startsWith("https://")) {
+    secureClient.setInsecure();
+    beginOk = httpClient.begin(secureClient, url);
+  } else {
+    beginOk = httpClient.begin(plainClient, url);
+  }
+
+  if (!beginOk) {
+    Serial.println("[HTTP] Failed to initialize connection to URL: " + url);
+    return false;
+  }
+
+  httpClient.addHeader("Content-Type", "application/json");
+  httpClient.addHeader("X-API-Key", DEVICE_API_KEY);
+
+  int httpCode = httpClient.POST(jsonPayload);
 
   if (httpCode == 201 || httpCode == 200) {
-    Serial.printf("[HTTP] SUCCESS (%d): Live data received by website!\n", httpCode);
-    http.end();
+    Serial.printf("[HTTP] SUCCESS (%d): Live data received by server!\n", httpCode);
+    httpClient.end();
     return true;
   } else {
-    Serial.printf("[HTTP] FAILED (%d): %s\n", httpCode, http.errorToString(httpCode).c_str());
-    http.end();
+    Serial.printf("[HTTP] FAILED (%d): %s (Target: %s)\n", httpCode, httpClient.errorToString(httpCode).c_str(), url.c_str());
+    httpClient.end();
     return false;
   }
 }
@@ -273,11 +362,15 @@ void setup() {
 //                         LOOP
 // =====================================================
 void loop() {
-  // Auto-reconnect if Wi-Fi drops
+  // Auto-reconnect if Wi-Fi drops (rate-limited so loop continues running)
+  static unsigned long lastReconnectAttempt = 0;
   if (WiFi.status() != WL_CONNECTED) {
     wifiConnected = false;
-    Serial.println("[WiFi] Connection lost, reconnecting...");
-    wifiConnected = connectWiFi();
+    if (millis() - lastReconnectAttempt >= 15000 || lastReconnectAttempt == 0) {
+      lastReconnectAttempt = millis();
+      Serial.println("[WiFi] Connection lost, reconnecting...");
+      wifiConnected = connectWiFi();
+    }
   } else {
     wifiConnected = true;
   }

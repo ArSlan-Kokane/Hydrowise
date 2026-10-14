@@ -90,6 +90,9 @@ bool connectToWiFi() {
   Serial.print("[WiFi] Connecting to: ");
   Serial.println(WIFI_SSID);
 
+  WiFi.disconnect(true);
+  delay(100);
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -184,10 +187,15 @@ void setup() {
 }
 
 void loop() {
+  // Reconnect if disconnected (rate-limited so loop isn't blocked continuously)
+  static unsigned long lastReconnectAttempt = 0;
   if (WiFi.status() != WL_CONNECTED) {
     wifiConnected = false;
-    Serial.println("[WARN] Wi-Fi disconnected, reconnecting...");
-    wifiConnected = connectToWiFi();
+    if (millis() - lastReconnectAttempt >= 15000 || lastReconnectAttempt == 0) {
+      lastReconnectAttempt = millis();
+      Serial.println("[WARN] Wi-Fi disconnected, reconnecting...");
+      wifiConnected = connectToWiFi();
+    }
   } else {
     wifiConnected = true;
   }
