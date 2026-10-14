@@ -140,9 +140,23 @@ class Settings(BaseSettings):
         return url
 
     @property
+    def normalized_database_url(self) -> str:
+        """Ensure connection string starts with postgresql:// for asyncpg."""
+        url = self.database_url or "sqlite:///hydrowise.db"
+        if url.startswith("postgres://"):
+            return "postgresql://" + url[len("postgres://") :]
+        return url
+
+    @property
     def use_postgres(self) -> bool:
         """True when DATABASE_URL is a PostgreSQL connection string."""
-        return self.database_url and self.database_url.startswith("postgresql://")
+        return bool(
+            self.database_url
+            and (
+                self.database_url.startswith("postgresql://")
+                or self.database_url.startswith("postgres://")
+            )
+        )
 
     # ------------------------------------------------------------------ #
     # API service                                                          #

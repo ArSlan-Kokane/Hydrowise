@@ -99,9 +99,13 @@ async def get_latest_sensors(store: TelemetryStore = Depends(get_telemetry_store
     """
     Return the most recent sensor reading from store, or fallback to mock.
     """
-    latest = await store.latest()
-    if latest is not None:
-        return latest
+    try:
+        latest = await store.latest()
+        if latest is not None:
+            return latest
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Failed to query latest sensor reading: %s", e)
     return sensor_reading()
 
 
@@ -141,9 +145,13 @@ async def get_sensor_history(store: TelemetryStore = Depends(get_telemetry_store
     """
     Return 24 hours of sensor history from store, or fallback to mock.
     """
-    stored = await store.history(limit=24)
-    if stored:
-        return {"items": stored}
+    try:
+        stored = await store.history(limit=24)
+        if stored:
+            return {"items": stored}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Failed to query sensor history: %s", e)
     return {"items": history()}
 
 

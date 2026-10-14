@@ -526,7 +526,7 @@ def get_telemetry_store(settings: Settings | None = None) -> TelemetryStore:
 
     # Use PostgreSQL if DATABASE_URL is a PostgreSQL connection string
     if settings.use_postgres:
-        db_url = settings.database_url
+        db_url = settings.normalized_database_url
         if db_url not in _store_cache:
             store = PostgresTelemetryStore(database_url=db_url)
             _store_cache[db_url] = store
